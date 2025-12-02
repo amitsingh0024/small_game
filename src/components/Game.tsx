@@ -15,7 +15,6 @@ import {
   engineObjectsCollect,
   WHITE,
   RED,
-  BLACK,
   BLUE,
   GREEN,
   YELLOW,
@@ -564,7 +563,6 @@ class Enemy extends EngineObject {
   private patrolCenterX: number = 0 // Center of patrol area for purple enemies
   private patrolCenterY: number = 0 // Center of patrol area for purple enemies
   private patrolRadius: number = 4 // 8x8 area = 4 cells radius
-  private patrolDirection: number = 0 // Random direction for patrolling
   public isChasing: boolean = false // Purple enemy is chasing player
 
   constructor(gridX: number, gridY: number, type: 'orange' | 'purple' = 'orange') {
@@ -585,7 +583,6 @@ class Enemy extends EngineObject {
     if (type === 'purple') {
       this.patrolCenterX = gridX
       this.patrolCenterY = gridY
-      this.patrolDirection = Math.random() * Math.PI * 2 // Random starting direction
     }
     
     this.updateWorldPosition()
@@ -1070,7 +1067,6 @@ class Player extends EngineObject {
           if (ghostWallPasses <= 0) {
             // No more wall passes, end ghost mode
             this.isGhostMode = false
-            playerGhostMode = false
             console.log('Ghost mode ended - no wall passes remaining!')
           }
         }
@@ -1169,6 +1165,7 @@ class Player extends EngineObject {
 let player: Player | null = null
 let blocks: Block[] = []
 let pressurePlate: PressurePlate | null = null
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let doors: Door[] = []
 let walls: Wall[] = []
 let decorativeObjects: DecorativeObject[] = []
@@ -1181,9 +1178,9 @@ let gameWon: boolean = false
 // Callbacks to update React state from LittleJS callbacks
 let setGameOverCallback: ((value: boolean) => void) | null = null
 let setGameWonCallback: ((value: boolean) => void) | null = null
-let setShowMenuCallback: ((value: boolean) => void) | null = null
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let setShowMenuCallback: ((value: boolean) => void) | null = null // Used in useEffect cleanup
 let playerJustMoved: boolean = false // Track when player moves to trigger enemy movement
-let playerGhostMode: boolean = false // Player can move through walls and enemies
 let ghostWallPasses: number = 0 // Number of wall passes remaining (3 total)
 let enemiesFrozen: boolean = false // Enemies are frozen
 let freezeStepsRemaining: number = 0 // Number of player moves remaining for freeze effect
@@ -1465,7 +1462,6 @@ function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView
   
   if (powerType === 'ghost') {
     player.isGhostMode = true
-    playerGhostMode = true
     ghostWallPasses = 3 // 3 wall passes allowed
     console.log('Ghost mode activated! You can pass through 3 walls (excluding border walls)!')
     
@@ -1647,7 +1643,6 @@ function restartGame(): void {
   if (setGameOverCallback) setGameOverCallback(false)
   if (setGameWonCallback) setGameWonCallback(false)
   playerJustMoved = false
-  playerGhostMode = false
   ghostWallPasses = 0
   enemiesFrozen = false
   freezeStepsRemaining = 0
@@ -1669,25 +1664,30 @@ function restartGame(): void {
   // Spawn 2 purple enemies: one near exit, one near block
   const worldSize = 50 // Match generateRandomWorld worldSize
   
-  if (exitGate) {
+  const exitGateForSpawn: ExitGate | null = exitGate
+  if (exitGateForSpawn !== null) {
     // Purple enemy near exit (within 8x8 patrol area)
-    let exitEnemyX = exitGate.gridX
-    let exitEnemyY = exitGate.gridY
+    // Store values to avoid type narrowing issues
+    const exitGridX: number = (exitGateForSpawn as ExitGate).gridX
+    const exitGridY: number = (exitGateForSpawn as ExitGate).gridY
+    let exitEnemyX = exitGridX
+    let exitEnemyY = exitGridY
     let attempts = 0
     let foundPosition = false
     
     // Find a position near exit within patrol radius (not on exit itself)
     do {
-      exitEnemyX = exitGate.gridX + Math.floor(Math.random() * 9) - 4 // -4 to +4
-      exitEnemyY = exitGate.gridY + Math.floor(Math.random() * 9) - 4
+      exitEnemyX = exitGridX + Math.floor(Math.random() * 9) - 4 // -4 to +4
+      exitEnemyY = exitGridY + Math.floor(Math.random() * 9) - 4
       attempts++
       
       // Check if position is valid
-      const isOnExit = (exitEnemyX === exitGate.gridX && exitEnemyY === exitGate.gridY)
+      const isOnExit = (exitEnemyX === exitGridX && exitEnemyY === exitGridY)
       const isOnWall = walls.some(w => w.gridX === exitEnemyX && w.gridY === exitEnemyY)
       const isOnEnemy = enemies.some(e => e.gridX === exitEnemyX && e.gridY === exitEnemyY)
       const isOutOfBounds = Math.abs(exitEnemyX) > worldSize || Math.abs(exitEnemyY) > worldSize
-      const isOnPressurePlate = pressurePlate && exitEnemyX === pressurePlate.gridX && exitEnemyY === pressurePlate.gridY
+      const pressurePlateForCheck: PressurePlate | null = pressurePlate
+      const isOnPressurePlate = pressurePlateForCheck !== null ? (exitEnemyX === (pressurePlateForCheck as PressurePlate).gridX && exitEnemyY === (pressurePlateForCheck as PressurePlate).gridY) : false
       
       if (!isOnExit && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnPressurePlate) {
         foundPosition = true
@@ -1697,9 +1697,9 @@ function restartGame(): void {
     if (foundPosition) {
       const exitEnemy = new Enemy(exitEnemyX, exitEnemyY, 'purple')
       enemies.push(exitEnemy)
-      console.log(`Purple enemy spawned near exit at (${exitEnemyX}, ${exitEnemyY}), exit at (${exitGate.gridX}, ${exitGate.gridY})`)
+      console.log(`Purple enemy spawned near exit at (${exitEnemyX}, ${exitEnemyY}), exit at (${exitGridX}, ${exitGridY})`)
     } else {
-      console.log(`Failed to spawn purple enemy near exit after ${attempts} attempts. Exit at (${exitGate.gridX}, ${exitGate.gridY})`)
+      console.log(`Failed to spawn purple enemy near exit after ${attempts} attempts. Exit at (${exitGridX}, ${exitGridY})`)
     }
   } else {
     console.log('No exitGate found when trying to spawn purple enemy')
@@ -1724,8 +1724,10 @@ function restartGame(): void {
       const isOnWall = walls.some(w => w.gridX === blockEnemyX && w.gridY === blockEnemyY)
       const isOnEnemy = enemies.some(e => e.gridX === blockEnemyX && e.gridY === blockEnemyY)
       const isOutOfBounds = Math.abs(blockEnemyX) > worldSize || Math.abs(blockEnemyY) > worldSize
-      const isOnExit = exitGate && blockEnemyX === exitGate.gridX && blockEnemyY === exitGate.gridY
-      const isOnPressurePlate = pressurePlate && blockEnemyX === pressurePlate.gridX && blockEnemyY === pressurePlate.gridY
+      const currentExitGateForBlock: ExitGate | null = exitGate
+      const currentPressurePlateForBlock: PressurePlate | null = pressurePlate
+      const isOnExit = currentExitGateForBlock !== null ? (blockEnemyX === (currentExitGateForBlock as ExitGate).gridX && blockEnemyY === (currentExitGateForBlock as ExitGate).gridY) : false
+      const isOnPressurePlate = currentPressurePlateForBlock !== null ? (blockEnemyX === (currentPressurePlateForBlock as PressurePlate).gridX && blockEnemyY === (currentPressurePlateForBlock as PressurePlate).gridY) : false
       
       if (!isOnBlock && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnExit && !isOnPressurePlate) {
         foundPosition = true
@@ -1758,7 +1760,11 @@ function restartGame(): void {
       attempts++
     } while (
       (Math.sqrt(enemyX * enemyX + enemyY * enemyY) < 8 || // Too close to spawn
-      (exitGate && Math.sqrt((enemyX - exitGate.gridX) ** 2 + (enemyY - exitGate.gridY) ** 2) < 5) || // Too close to exit
+      (() => {
+        const eg: ExitGate | null = exitGate
+        if (eg === null) return false
+        return Math.sqrt((enemyX - (eg as ExitGate).gridX) ** 2 + (enemyY - (eg as ExitGate).gridY) ** 2) < 5
+      })() || // Too close to exit
       walls.some(w => w.gridX === enemyX && w.gridY === enemyY) || // On a wall
       enemies.some(e => e.gridX === enemyX && e.gridY === enemyY)) && // On another enemy
       attempts < 50
@@ -1800,7 +1806,6 @@ function drawExitViewArrows(): void {
   const distanceSq = dx * dx + dy * dy
   
   if (distanceSq > 0.01) { // Use squared distance to avoid sqrt
-    const distance = Math.sqrt(distanceSq)
     const viewportSize = VIEWPORT_WIDTH * GRID_SIZE / 2
     const arrowDistance = viewportSize * 0.8
     const angle = Math.atan2(dy, dx)
@@ -1842,7 +1847,6 @@ function drawExitViewArrows(): void {
     const blockDistanceSq = blockDx * blockDx + blockDy * blockDy
     
     if (blockDistanceSq > 0.01) {
-      const blockDistance = Math.sqrt(blockDistanceSq)
       const blockAngle = Math.atan2(blockDy, blockDx)
       const viewportSize = VIEWPORT_WIDTH * GRID_SIZE / 2
       const arrowDistance = viewportSize * 0.8
@@ -1908,7 +1912,6 @@ function drawEnemyViewIndicators(): void {
     const distanceSq = dx * dx + dy * dy
     
     if (distanceSq > 0.01) {
-      const distance = Math.sqrt(distanceSq)
       const angle = Math.atan2(dy, dx)
       
       const indicatorX = playerWorldX + Math.cos(angle) * indicatorDistance
