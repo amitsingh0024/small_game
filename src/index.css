@@ -9,14 +9,46 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light;
-  color: rgba(0, 0, 0, 0.87);
-  background-color: #ffffff;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light theme (default) */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-hover: #e8e8e8;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --border-color: #e0e0e0;
+  --accent-color: #1a1a1a;
+  --accent-text: #ffffff;
+  --accent-hover: #2a2a2a;
+  --grid-color: rgba(0.7, 0.7, 0.7, 0.6);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2a2a2a;
+  --bg-hover: #3a3a3a;
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --border-color: #404040;
+  --accent-color: #ffffff;
+  --accent-text: #1a1a1a;
+  --accent-hover: #e0e0e0;
+  --grid-color: rgba(0.4, 0.4, 0.4, 0.6);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 body {

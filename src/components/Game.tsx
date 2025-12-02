@@ -25,6 +25,7 @@ import './Game.css'
 import { MenuScreen } from './MenuScreen'
 import { GameOverScreen } from './GameOverScreen'
 import { VictoryScreen } from './VictoryScreen'
+import { useTheme } from '../contexts/ThemeContext'
 
 // Game configuration - Player-centered camera with viewport
 const GRID_SIZE = 1 // Size of each grid cell in world units
@@ -268,12 +269,21 @@ class Wall extends EngineObject {
       return
     }
     
+    // Adjust wall color based on theme for better visibility
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
+    const wallColor = currentTheme === 'dark' 
+      ? new Color(0.6, 0.6, 0.6, 1) // Lighter gray for dark mode
+      : this.color // Use GRAY for light mode
+    
     // Draw wall with a darker border for depth
-    drawRect(this.pos, this.size, this.color)
+    drawRect(this.pos, this.size, wallColor)
     // Add a subtle darker outline by drawing a slightly smaller rect (reuse objects)
     reusableBorderSize.x = this.size.x * 0.9
     reusableBorderSize.y = this.size.y * 0.9
-    drawRect(this.pos, reusableBorderSize, reusableBorderColor)
+    const borderColor = currentTheme === 'dark'
+      ? new Color(0.4, 0.4, 0.4, 0.8) // Lighter border for dark mode
+      : reusableBorderColor
+    drawRect(this.pos, reusableBorderSize, borderColor)
   }
 }
 
@@ -889,8 +899,17 @@ class Enemy extends EngineObject {
   }
 
   update(): void {
+    const wasMoving = this.isMoving
     if (this.isMoving) {
       this.moveToTarget()
+    }
+    
+    // Check collision when enemy finishes moving (important for purple enemies that might catch player)
+    if (wasMoving && !this.isMoving && !player?.isGhostMode && !enemiesFrozen) {
+      if (this.checkCollisionWithPlayer()) {
+        triggerGameOver()
+        return
+      }
     }
     
     // Update color based on freeze state (reuse color object instead of creating new)
@@ -1608,7 +1627,10 @@ function triggerGameOver(): void {
   if (gameOver || gameWon) return
   
   gameOver = true
-  if (setGameOverCallback) setGameOverCallback(true)
+  // Ensure callback is called synchronously to show game over screen
+  if (setGameOverCallback) {
+    setGameOverCallback(true)
+  }
   console.log('Game Over!')
 }
 
@@ -2031,6 +2053,7 @@ function Game() {
   const [showMenu, setShowMenu] = useState(true)
   const [gameOverState, setGameOverState] = useState(false)
   const [gameWonState, setGameWonState] = useState(false)
+  const { theme } = useTheme()
   
   // Set callbacks for LittleJS to update React state
   useEffect(() => {
@@ -2108,6 +2131,15 @@ function Game() {
     }
   }, [showMenu])
 
+  // Update canvas background when theme changes
+  useEffect(() => {
+    if (!showMenu) {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
+      const bgColor = currentTheme === 'dark' ? new Color(0.1, 0.1, 0.1, 1) : WHITE
+      setCanvasClearColor(bgColor)
+    }
+  }, [theme, showMenu])
+
   // Handle window resize for mobile devices (address bar show/hide)
   useEffect(() => {
     if (showMenu) return
@@ -2165,8 +2197,10 @@ function Game() {
           () => {
             console.log('Tutorial Level initialized!')
             
-            // Set canvas background to neutral color
-            setCanvasClearColor(WHITE)
+            // Set canvas background based on current theme
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
+            const bgColor = currentTheme === 'dark' ? new Color(0.1, 0.1, 0.1, 1) : WHITE
+            setCanvasClearColor(bgColor)
             
             // Reset game state
             blocks = []
@@ -2305,7 +2339,8 @@ function Game() {
 
           // gameUpdate - Called every frame to update game logic
           () => {
-            if (gameOver || gameWon) return // Don't update if game is over or won
+            // Don't update game logic if game is over or won
+            if (gameOver || gameWon) return
             
             // Update cached viewport bounds once per frame
             updateViewportBounds()
@@ -2325,17 +2360,13 @@ function Game() {
               reusableGhostColor.a = 0.3 + Math.sin(ghostTime) * 0.2
             }
             
-            // Only check collisions when player is not in ghost mode and enemies are not frozen
-            // Also only check if enemies are actually moving or player just moved
-            if (player && !player.isGhostMode && !enemiesFrozen) {
-              // Only check collisions if any enemy is moving or player just moved
-              const shouldCheckCollisions = playerJustMoved || enemies.some(e => e.isMoving)
-              if (shouldCheckCollisions) {
-                for (let i = 0; i < enemies.length; i++) {
-                  if (enemies[i].checkCollisionWithPlayer()) {
-                    triggerGameOver()
-                    return // Exit immediately if game over triggered
-                  }
+            // Check collisions when player is not in ghost mode and enemies are not frozen
+            // Check every frame to ensure collisions are detected immediately
+            if (player && !player.isGhostMode && !enemiesFrozen && !gameOver && !gameWon) {
+              for (let i = 0; i < enemies.length; i++) {
+                if (enemies[i].checkCollisionWithPlayer()) {
+                  triggerGameOver()
+                  return // Exit immediately if game over triggered
                 }
               }
             }
@@ -2401,14 +2432,13 @@ function Game() {
   
   // Handle menu start
   const handleStartGame = () => {
-    // Hide menu first
+    // Always reset game states first
+    setGameOverState(false)
+    setGameWonState(false)
+    // Reset game state to prevent stuck positions
+    restartGame()
+    // Hide menu to start game
     setShowMenu(false)
-    // Reset game states if needed
-    if (gameOverState || gameWonState) {
-      setGameOverState(false)
-      setGameWonState(false)
-      restartGame()
-    }
   }
   
   // Handle restart from game over/victory
@@ -2423,6 +2453,8 @@ function Game() {
     setGameOverState(false)
     setGameWonState(false)
     setShowMenu(true)
+    // Don't call restartGame() here - it will be called when starting a new game
+    // This prevents interfering with the game over screen display
   }
   
   // Handle next level (victory)

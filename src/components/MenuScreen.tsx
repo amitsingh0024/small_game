@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './MenuScreen.css'
+import { OptionsMenu } from './OptionsMenu'
 
 interface MenuScreenProps {
   onStart: () => void
@@ -11,6 +12,11 @@ interface MenuScreenProps {
  */
 export function MenuScreen({ onStart }: MenuScreenProps) {
   const [showHowToPlay, setShowHowToPlay] = useState(false)
+  const [showOptions, setShowOptions] = useState(false)
+
+  if (showOptions) {
+    return <OptionsMenu onBack={() => setShowOptions(false)} />
+  }
 
   if (showHowToPlay) {
     return (
@@ -105,7 +111,7 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
           <button className="menu-button" onClick={() => setShowHowToPlay(true)}>
             How to Play
           </button>
-          <button className="menu-button" onClick={() => alert('Options coming soon!')}>
+          <button className="menu-button" onClick={() => setShowOptions(true)}>
             Options
           </button>
         </div>

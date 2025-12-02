@@ -1,0 +1,72 @@
+.options-content {
+  max-width: 500px;
+}
+
+.options-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.option-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.option-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.theme-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.theme-button {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.theme-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.theme-button.active {
+  background: var(--accent-color);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.theme-button.active:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 768px) {
+  .options-content {
+    padding: 3rem 2rem;
+  }
+  
+  .theme-button {
+    padding: 0.7rem 1.25rem;
+    font-size: 0.9rem;
+  }
+}
+
