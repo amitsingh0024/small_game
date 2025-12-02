@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './MenuScreen.css'
 import { OptionsMenu } from './OptionsMenu'
+import { AdSense } from './AdSense'
 
 interface MenuScreenProps {
   onStart: () => void
@@ -115,6 +116,14 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
             Options
           </button>
         </div>
+        
+        {/* AdSense Ad */}
+        <AdSense 
+          adSlot="9697869538" 
+          adFormat="auto"
+          fullWidthResponsive={true}
+          style={{ marginTop: '2rem' }}
+        />
       </div>
     </div>
   )

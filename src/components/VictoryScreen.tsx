@@ -1,4 +1,5 @@
 import './VictoryScreen.css'
+import { AdSense } from './AdSense'
 
 interface VictoryScreenProps {
   onNext: () => void
@@ -52,6 +53,14 @@ export function VictoryScreen({ onNext, onMenu }: VictoryScreenProps) {
             Main Menu
           </button>
         </div>
+        
+        {/* AdSense Ad */}
+        <AdSense 
+          adSlot="9697869538" 
+          adFormat="auto"
+          fullWidthResponsive={true}
+          style={{ marginTop: '1.5rem' }}
+        />
       </div>
     </div>
   )

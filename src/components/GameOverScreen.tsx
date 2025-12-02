@@ -1,4 +1,5 @@
 import './GameOverScreen.css'
+import { AdSense } from './AdSense'
 
 interface GameOverScreenProps {
   onRestart: () => void
@@ -52,6 +53,14 @@ export function GameOverScreen({ onRestart, onMenu }: GameOverScreenProps) {
             Main Menu
           </button>
         </div>
+        
+        {/* AdSense Ad */}
+        <AdSense 
+          adSlot="9697869538" 
+          adFormat="auto"
+          fullWidthResponsive={true}
+          style={{ marginTop: '1.5rem' }}
+        />
       </div>
     </div>
   )
