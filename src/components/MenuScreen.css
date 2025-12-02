@@ -1,0 +1,390 @@
+.menu-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  /* Grid background - matching game style */
+  background-image: 
+    linear-gradient(rgba(0.7, 0.7, 0.7, 0.6) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0.7, 0.7, 0.7, 0.6) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Animated squares - matching game style (90% of grid cell) */
+.animated-square {
+  position: absolute;
+  width: 54px; /* 90% of 60px grid cell */
+  height: 54px;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 0; /* Square, not rounded */
+}
+
+.square-1 {
+  background-color: #e74c3c; /* Red - player color */
+  left: calc(60px * 2 + 3px); /* Grid cell 2, centered */
+  top: calc(60px * 2 + 3px);
+  animation: moveSquare1 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.square-2 {
+  background-color: #3498db; /* Blue - block color */
+  left: calc(60px * 5 + 3px); /* Grid cell 5, centered */
+  top: calc(60px * 3 + 3px);
+  animation: moveSquare2 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.square-3 {
+  background-color: #e67e22; /* Orange - enemy color */
+  left: calc(60px * 8 + 3px); /* Grid cell 8, centered */
+  top: calc(60px * 2 + 3px);
+  animation: moveSquare3 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.square-4 {
+  background-color: #9b59b6; /* Purple - enemy color */
+  left: calc(60px * 3 + 3px); /* Grid cell 3, centered */
+  top: calc(60px * 8 + 3px);
+  animation: moveSquare4 7.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.square-5 {
+  background-color: #27ae60; /* Green - exit color */
+  left: calc(60px * 10 + 3px); /* Grid cell 10, centered */
+  top: calc(60px * 6 + 3px);
+  animation: moveSquare5 8.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.square-6 {
+  background-color: #f1c40f; /* Yellow - pressure plate color */
+  left: calc(60px * 7 + 3px); /* Grid cell 7, centered */
+  top: calc(60px * 10 + 3px);
+  animation: moveSquare6 9.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Square movement animations - moving one grid cell at a time (60px increments) */
+@keyframes moveSquare1 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(60px, 0px); } /* Move right 1 cell */
+  50% { transform: translate(60px, 60px); } /* Move down 1 cell */
+  75% { transform: translate(0px, 60px); } /* Move left 1 cell */
+  100% { transform: translate(0px, 0px); } /* Move up 1 cell */
+}
+
+@keyframes moveSquare2 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(120px, 0px); } /* Move right 2 cells */
+  50% { transform: translate(120px, 120px); } /* Move down 2 cells */
+  75% { transform: translate(0px, 120px); } /* Move left 2 cells */
+  100% { transform: translate(0px, 0px); } /* Move up 2 cells */
+}
+
+@keyframes moveSquare3 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(180px, 0px); } /* Move right 3 cells */
+  50% { transform: translate(180px, 180px); } /* Move down 3 cells */
+  75% { transform: translate(0px, 180px); } /* Move left 3 cells */
+  100% { transform: translate(0px, 0px); } /* Move up 3 cells */
+}
+
+@keyframes moveSquare4 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(-60px, 0px); } /* Move left 1 cell */
+  50% { transform: translate(-60px, -120px); } /* Move up 2 cells */
+  75% { transform: translate(60px, -120px); } /* Move right 1 cell */
+  100% { transform: translate(0px, 0px); } /* Move down 2 cells */
+}
+
+@keyframes moveSquare5 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(120px, 0px); } /* Move right 2 cells */
+  50% { transform: translate(120px, -60px); } /* Move up 1 cell */
+  75% { transform: translate(0px, -60px); } /* Move left 2 cells */
+  100% { transform: translate(0px, 0px); } /* Move down 1 cell */
+}
+
+@keyframes moveSquare6 {
+  0% { transform: translate(0px, 0px); }
+  25% { transform: translate(0px, -120px); } /* Move up 2 cells */
+  50% { transform: translate(120px, -120px); } /* Move right 2 cells */
+  75% { transform: translate(120px, 0px); } /* Move down 2 cells */
+  100% { transform: translate(0px, 0px); } /* Move left 2 cells */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.menu-content {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  padding: 4rem 3rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 10;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.menu-content.how-to-play-content {
+  max-width: 700px;
+  text-align: left;
+}
+
+.menu-title {
+  margin-bottom: 2rem;
+  flex-shrink: 0;
+}
+
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.menu-title h1 {
+  font-size: 4rem;
+  font-weight: 600;
+  margin: 0;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.menu-subtitle {
+  font-size: 1rem;
+  color: #666;
+  margin-top: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.menu-instructions {
+  text-align: left;
+  margin-bottom: 2rem;
+  flex: 1;
+}
+
+.menu-instructions h2 {
+  font-size: 1.25rem;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.menu-instructions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+
+.menu-instructions li {
+  padding: 0.5rem 0;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.menu-instructions li strong {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.power-ups-info,
+.enemy-info {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e8e8e8;
+}
+
+.enemy-info {
+  margin-bottom: 1rem;
+}
+
+.power-up-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.power-up-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.power-up-color {
+  font-size: 0.75rem;
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+
+.power-up-color.purple {
+  color: #9b59b6;
+}
+
+.power-up-color.blue {
+  color: #3498db;
+}
+
+.power-up-color.yellow {
+  color: #f1c40f;
+}
+
+.power-up-color.orange {
+  color: #e67e22;
+}
+
+.menu-button {
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: left 0.3s ease;
+}
+
+.menu-button:hover::before {
+  left: 100%;
+}
+
+.menu-button.play {
+  background: #1a1a1a;
+  font-size: 1.1rem;
+  padding: 1.25rem 2rem;
+  font-weight: 600;
+}
+
+.menu-button:hover {
+  background: #2a2a2a;
+  transform: none;
+}
+
+.menu-button:active {
+  background: #0a0a0a;
+  transform: scale(0.98);
+}
+
+.back-button {
+  background: transparent;
+  color: #666;
+  border: 1px solid #e0e0e0;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 2rem;
+  align-self: flex-start;
+}
+
+.back-button:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+  color: #1a1a1a;
+  transform: none;
+}
+
+/* Custom scrollbar for menu content */
+.menu-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.menu-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.menu-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+  .menu-content {
+    padding: 3rem 2rem;
+  }
+  
+  .menu-title h1 {
+    font-size: 3rem;
+  }
+  
+  .menu-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .menu-instructions {
+    font-size: 0.9rem;
+  }
+
+  .menu-button {
+    padding: 0.95rem 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .menu-button.play {
+    font-size: 1.05rem;
+    padding: 1.15rem 1.5rem;
+  }
+}
+
