@@ -1026,18 +1026,23 @@ class Player extends EngineObject {
       let newGridY = this.gridY
 
       // Check for arrow key or WASD input - no boundaries, player can move freely
-      if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W')) {
+      // Also check for mobile swipe direction
+      if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W') || swipeDirection === 'up') {
         newGridY = this.gridY + 1
         moved = true
-      } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S')) {
+        swipeDirection = null // Reset swipe after use
+      } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S') || swipeDirection === 'down') {
         newGridY = this.gridY - 1
         moved = true
-      } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A')) {
+        swipeDirection = null // Reset swipe after use
+      } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A') || swipeDirection === 'left') {
         newGridX = this.gridX - 1
         moved = true
-      } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D')) {
+        swipeDirection = null // Reset swipe after use
+      } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D') || swipeDirection === 'right') {
         newGridX = this.gridX + 1
         moved = true
+        swipeDirection = null // Reset swipe after use
       }
 
       if (moved) {
@@ -1174,6 +1179,12 @@ let enemies: Enemy[] = []
 let exitGate: ExitGate | null = null
 let gameOver: boolean = false
 let gameWon: boolean = false
+
+// Mobile swipe controls
+let swipeDirection: 'up' | 'down' | 'left' | 'right' | null = null
+let touchStartX: number = 0
+let touchStartY: number = 0
+const SWIPE_THRESHOLD = 30 // Minimum distance in pixels to register a swipe
 
 // Callbacks to update React state from LittleJS callbacks
 let setGameOverCallback: ((value: boolean) => void) | null = null
@@ -2033,6 +2044,110 @@ function Game() {
       setShowMenuCallback = null
     }
   }, [])
+
+  // Mobile swipe controls
+  useEffect(() => {
+    if (!gameContainerRef.current || showMenu) return
+
+    const container = gameContainerRef.current
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // Only handle if there's a single touch
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX
+        touchStartY = e.touches[0].clientY
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      // Only handle if there was a single touch
+      if (e.changedTouches.length === 1 && touchStartX !== 0 && touchStartY !== 0) {
+        const touchEndX = e.changedTouches[0].clientX
+        const touchEndY = e.changedTouches[0].clientY
+        
+        const deltaX = touchEndX - touchStartX
+        const deltaY = touchEndY - touchStartY
+        
+        const absDeltaX = Math.abs(deltaX)
+        const absDeltaY = Math.abs(deltaY)
+        
+        // Determine swipe direction based on the larger movement
+        // Only register swipe if movement exceeds threshold
+        if (absDeltaX > SWIPE_THRESHOLD || absDeltaY > SWIPE_THRESHOLD) {
+          if (absDeltaX > absDeltaY) {
+            // Horizontal swipe
+            swipeDirection = deltaX > 0 ? 'right' : 'left'
+          } else {
+            // Vertical swipe
+            swipeDirection = deltaY > 0 ? 'down' : 'up'
+          }
+        }
+        
+        // Reset touch start positions
+        touchStartX = 0
+        touchStartY = 0
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Prevent default scrolling behavior during game
+      if (!showMenu) {
+        e.preventDefault()
+      }
+    }
+
+    // Add touch event listeners
+    container.addEventListener('touchstart', handleTouchStart, { passive: false })
+    container.addEventListener('touchend', handleTouchEnd, { passive: true })
+    container.addEventListener('touchmove', handleTouchMove, { passive: false })
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart)
+      container.removeEventListener('touchend', handleTouchEnd)
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [showMenu])
+
+  // Handle window resize for mobile devices (address bar show/hide)
+  useEffect(() => {
+    if (showMenu) return
+
+    const handleResize = () => {
+      // Force canvas to resize on mobile viewport changes
+      const canvas = document.querySelector('canvas')
+      if (canvas && gameContainerRef.current) {
+        const container = gameContainerRef.current
+        const containerWidth = container.clientWidth
+        const containerHeight = container.clientHeight
+        
+        // Update canvas size to match container
+        canvas.style.width = `${containerWidth}px`
+        canvas.style.height = `${containerHeight}px`
+      }
+    }
+
+    // Use ResizeObserver for better mobile support
+    let resizeObserver: ResizeObserver | null = null
+    if (gameContainerRef.current && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(handleResize)
+      resizeObserver.observe(gameContainerRef.current)
+    }
+
+    // Also listen to window resize as fallback
+    window.addEventListener('resize', handleResize)
+    window.addEventListener('orientationchange', handleResize)
+
+    // Initial resize
+    handleResize()
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', handleResize)
+      if (resizeObserver && gameContainerRef.current) {
+        resizeObserver.unobserve(gameContainerRef.current)
+      }
+    }
+  }, [showMenu])
 
   useEffect(() => {
     // Only initialize game if menu is not showing

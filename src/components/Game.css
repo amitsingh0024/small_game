@@ -1,19 +1,67 @@
 .game-wrapper {
   width: 100%;
   height: 100%;
+  min-height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
   margin: 0;
   padding: 0;
+  position: relative;
+  /* Prevent text selection and touch callouts on mobile */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* Prevent pull-to-refresh on mobile */
+  overscroll-behavior: none;
+  /* Ensure touch events work properly */
+  touch-action: none;
+  /* Handle safe areas for notched devices */
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
+/* Ensure body and html take full viewport on mobile */
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* Style the canvas that LittleJS creates */
 .game-wrapper canvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+  /* Prevent touch actions on canvas */
+  touch-action: none;
+  /* Ensure canvas scales properly on mobile */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  /* Center the canvas */
+  margin: 0 auto;
 }
 
