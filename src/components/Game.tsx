@@ -449,7 +449,7 @@ class PowerUp extends EngineObject {
 class Block extends EngineObject {
   public gridX: number = 0
   public gridY: number = 0
-  private isMoving: boolean = false
+  public isMoving: boolean = false // Made public to check from Player
   private moveSpeed: number = 5 // Grid cells per second (matches player for consistency)
   private targetGridX: number = 0
   private targetGridY: number = 0
@@ -510,7 +510,10 @@ class Block extends EngineObject {
    * Push the block in a direction
    */
   push(newGridX: number, newGridY: number): boolean {
-    if (this.isMoving) return false
+    // CRITICAL: Return false immediately if already moving to prevent duplicate pushes
+    if (this.isMoving) {
+      return false
+    }
     
     // No world boundaries - blocks can be pushed anywhere
 
@@ -526,6 +529,12 @@ class Block extends EngineObject {
     
     if (hasClosedDoor) {
       return false // Can't push into a closed door
+    }
+    
+    // Check if there's another block at the target position
+    const hasBlock = objectsAtTarget.some(obj => obj instanceof Block && obj !== this)
+    if (hasBlock) {
+      return false // Can't push into another block
     }
 
     // Check if there's another block at the target position
@@ -950,8 +959,8 @@ class Player extends EngineObject {
   public isMoving: boolean = false // Made public for enemy movement check
   public isGhostMode: boolean = false // Can move through walls and enemies
   private moveSpeed: number = 5 // Grid cells per second (slower for smoother feel)
-  private targetGridX: number = 0
-  private targetGridY: number = 0
+  public targetGridX: number = 0 // Made public for viewport updates during movement
+  public targetGridY: number = 0 // Made public for viewport updates during movement
 
   constructor() {
     // Create player at grid position (0, 0)
@@ -998,6 +1007,8 @@ class Player extends EngineObject {
       this.pos.x = targetWorldX
       this.pos.y = targetWorldY
       this.isMoving = false
+      // Ensure position is exactly on grid after movement completes
+      this.updateWorldPosition()
     } else {
       // Smooth movement with easing (ease-out for natural feel)
       const moveDistance = this.moveSpeed * GRID_SIZE * timeDelta
@@ -1054,25 +1065,46 @@ class Player extends EngineObject {
       let moved = false
       let newGridX = this.gridX
       let newGridY = this.gridY
-
-      // Check for arrow key or WASD input - no boundaries, player can move freely
-      // Also check for mobile swipe direction
-      if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W') || swipeDirection === 'up') {
-        newGridY = this.gridY + 1
-        moved = true
-        swipeDirection = null // Reset swipe after use
-      } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S') || swipeDirection === 'down') {
-        newGridY = this.gridY - 1
-        moved = true
-        swipeDirection = null // Reset swipe after use
-      } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A') || swipeDirection === 'left') {
-        newGridX = this.gridX - 1
-        moved = true
-        swipeDirection = null // Reset swipe after use
-      } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D') || swipeDirection === 'right') {
-        newGridX = this.gridX + 1
-        moved = true
-        swipeDirection = null // Reset swipe after use
+      
+      // Separate mobile and desktop controls - they work independently
+      const isMobile = isMobileDevice()
+      
+      // Mobile: Only use swipe direction
+      // Desktop: Only use keyboard input
+      if (isMobile) {
+        // Mobile controls - capture and reset swipe direction
+        const currentSwipe = swipeDirection
+        swipeDirection = null // Always reset immediately, even if null
+        
+        // Only process swipe on mobile
+        if (currentSwipe === 'up') {
+          newGridY = this.gridY + 1
+          moved = true
+        } else if (currentSwipe === 'down') {
+          newGridY = this.gridY - 1
+          moved = true
+        } else if (currentSwipe === 'left') {
+          newGridX = this.gridX - 1
+          moved = true
+        } else if (currentSwipe === 'right') {
+          newGridX = this.gridX + 1
+          moved = true
+        }
+      } else {
+        // Desktop controls - only use keyboard input
+        if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W')) {
+          newGridY = this.gridY + 1
+          moved = true
+        } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S')) {
+          newGridY = this.gridY - 1
+          moved = true
+        } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A')) {
+          newGridX = this.gridX - 1
+          moved = true
+        } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D')) {
+          newGridX = this.gridX + 1
+          moved = true
+        }
       }
 
       if (moved) {
@@ -1123,20 +1155,29 @@ class Player extends EngineObject {
         const frozenEnemy = enemiesFrozen ? this.getEnemyAt(newGridX, newGridY) : null
         
         if (block) {
+          // CRITICAL: Check if block is already moving - prevent duplicate pushes
+          if (block.isMoving) {
+            return // Block is already moving, don't allow player movement
+          }
+          
           // Try to push the block
           const pushX = newGridX + (newGridX - this.gridX)
           const pushY = newGridY + (newGridY - this.gridY)
           
-          if (block.push(pushX, pushY)) {
-            // Block can be pushed, so player can move
-            this.targetGridX = newGridX
-            this.targetGridY = newGridY
-            this.isMoving = true
+          // Double-check block is not moving before push attempt (race condition protection)
+          if (!block.isMoving) {
+            if (block.push(pushX, pushY)) {
+              // Block can be pushed, so player can move
+              this.targetGridX = newGridX
+              this.targetGridY = newGridY
+              this.isMoving = true
+            } else {
+              // Block can't be pushed, cancel movement
+              return
+            }
           } else {
-            // Block can't be pushed, cancel movement
-            this.targetGridX = this.gridX
-            this.targetGridY = this.gridY
-            this.isMoving = false
+            // Block started moving between check and push attempt, cancel
+            return
           }
         } else if (frozenEnemy) {
           // Try to push the frozen enemy
@@ -1159,8 +1200,8 @@ class Player extends EngineObject {
         // Mark that player just moved (for enemy turn-based movement)
         playerJustMoved = true
         
-        // Snap to current grid position before moving
-        this.updateWorldPosition()
+        // Don't snap position - smooth movement will handle it
+        // Position will be updated smoothly in moveToTarget()
       }
     }
 
@@ -1211,10 +1252,17 @@ let gameOver: boolean = false
 let gameWon: boolean = false
 
 // Mobile swipe controls
+// Mobile swipe controls (only used on mobile devices)
 let swipeDirection: 'up' | 'down' | 'left' | 'right' | null = null
 let touchStartX: number = 0
 let touchStartY: number = 0
 const SWIPE_THRESHOLD = 30 // Minimum distance in pixels to register a swipe
+
+// Detect if we're on a mobile device
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (typeof window !== 'undefined' && 'ontouchstart' in window)
+}
 
 // Callbacks to update React state from LittleJS callbacks
 let setGameOverCallback: ((value: boolean) => void) | null = null
@@ -1415,10 +1463,12 @@ let cachedViewportBounds = {
 function updateViewportBounds(): void {
   if (!player) return
   
-  const playerGridX = player.gridX
-  const playerGridY = player.gridY
+  // Use target position if moving, otherwise use current position
+  // This ensures viewport updates during movement, not just after
+  const playerGridX = player.isMoving ? player.targetGridX : player.gridX
+  const playerGridY = player.isMoving ? player.targetGridY : player.gridY
   
-  // Only recalculate if player moved to a different grid cell
+  // Recalculate if player moved to a different grid cell (including during movement)
   if (cachedViewportBounds.playerGridX !== playerGridX || 
       cachedViewportBounds.playerGridY !== playerGridY) {
     const viewportOffsetX = Math.floor(VIEWPORT_WIDTH / 2)
@@ -1445,22 +1495,29 @@ function isInViewport(gridX: number, gridY: number): boolean {
 
 /**
  * Update camera to follow player smoothly
+ * @param immediate - If true, snap camera to player position immediately (for initialization)
  */
-function updateCamera(): void {
+function updateCamera(immediate: boolean = false): void {
   if (!player) return
   
   // Target camera position (player's world position)
   const targetX = player.pos.x
   const targetY = player.pos.y
   
-  // Smooth camera following using linear interpolation
-  const cameraSpeed = 10 // Higher = faster following, adjust for smoothness
-  const dx = targetX - cameraPos.x
-  const dy = targetY - cameraPos.y
-  
-  // Move camera towards target smoothly
-  cameraPos.x += dx * cameraSpeed * timeDelta
-  cameraPos.y += dy * cameraSpeed * timeDelta
+  if (immediate) {
+    // Snap camera to player position immediately (for initialization)
+    cameraPos.x = targetX
+    cameraPos.y = targetY
+  } else {
+    // Smooth camera following using linear interpolation
+    const cameraSpeed = 10 // Higher = faster following, adjust for smoothness
+    const dx = targetX - cameraPos.x
+    const dy = targetY - cameraPos.y
+    
+    // Move camera towards target smoothly
+    cameraPos.x += dx * cameraSpeed * timeDelta
+    cameraPos.y += dy * cameraSpeed * timeDelta
+  }
 }
 
 
@@ -1773,11 +1830,19 @@ function restartGame(): void {
   enemyViewStepsRemaining = 0
   
   // Generate new world (with new random seed)
+  // This will create new objects and add them to engineObjects
   generateRandomWorld()
   
   // Create new player
+  // Note: player was already destroyed and set to null above
   player = new Player()
-  updateCamera()
+  // Initialize camera on player immediately (snap to position)
+  // Use requestAnimationFrame to ensure player position is set
+  requestAnimationFrame(() => {
+    if (player) {
+      updateCamera(true)
+    }
+  })
   
   // Create enemies
   enemies = []
@@ -2173,28 +2238,35 @@ function Game() {
     const handleTouchEnd = (e: TouchEvent) => {
       // Only handle if there was a single touch
       if (e.changedTouches.length === 1 && touchStartX !== 0 && touchStartY !== 0) {
-        const touchEndX = e.changedTouches[0].clientX
-        const touchEndY = e.changedTouches[0].clientY
-        
-        const deltaX = touchEndX - touchStartX
-        const deltaY = touchEndY - touchStartY
-        
-        const absDeltaX = Math.abs(deltaX)
-        const absDeltaY = Math.abs(deltaY)
-        
-        // Determine swipe direction based on the larger movement
-        // Only register swipe if movement exceeds threshold
-        if (absDeltaX > SWIPE_THRESHOLD || absDeltaY > SWIPE_THRESHOLD) {
-          if (absDeltaX > absDeltaY) {
-            // Horizontal swipe
-            swipeDirection = deltaX > 0 ? 'right' : 'left'
-          } else {
-            // Vertical swipe
-            swipeDirection = deltaY > 0 ? 'down' : 'up'
+        // Only register swipe if player exists and is not currently moving
+        if (player && !player.isMoving && !swipeDirection) {
+          const touchEndX = e.changedTouches[0].clientX
+          const touchEndY = e.changedTouches[0].clientY
+          
+          const deltaX = touchEndX - touchStartX
+          const deltaY = touchEndY - touchStartY
+          
+          const absDeltaX = Math.abs(deltaX)
+          const absDeltaY = Math.abs(deltaY)
+          
+          // Determine swipe direction based on the larger movement
+          // Only register swipe if movement exceeds threshold
+          if (absDeltaX > SWIPE_THRESHOLD || absDeltaY > SWIPE_THRESHOLD) {
+            if (absDeltaX > absDeltaY) {
+              // Horizontal swipe
+              swipeDirection = deltaX > 0 ? 'right' : 'left'
+            } else {
+              // Vertical swipe
+              swipeDirection = deltaY > 0 ? 'down' : 'up'
+            }
           }
         }
         
         // Reset touch start positions
+        touchStartX = 0
+        touchStartY = 0
+      } else {
+        // Reset touch start positions even if swipe wasn't registered
         touchStartX = 0
         touchStartY = 0
       }
@@ -2290,10 +2362,32 @@ function Game() {
             const bgColor = currentTheme === 'dark' ? new Color(0.1, 0.1, 0.1, 1) : WHITE
             setCanvasClearColor(bgColor)
             
-            // Reset game state
+            // Destroy all existing objects first
+            if (player) {
+              try {
+                player.destroy()
+              } catch (e) {
+                console.warn('Error destroying player:', e)
+              }
+              player = null
+            }
+            
+            // Destroy all other game objects
+            walls.forEach(wall => wall.destroy())
+            blocks.forEach(block => block.destroy())
+            enemies.forEach(enemy => enemy.destroy())
+            powerUps.forEach(powerUp => powerUp.destroy())
+            if (exitGate) exitGate.destroy()
+            if (pressurePlate) pressurePlate.destroy()
+            
+            // Reset game state arrays
             blocks = []
             doors = []
             enemies = []
+            walls = []
+            powerUps = []
+            exitGate = null
+            pressurePlate = null
             gameOver = false
             gameWon = false
             playerJustMoved = false
@@ -2307,13 +2401,19 @@ function Game() {
             if (setGameWonCallback) setGameWonCallback(false)
             
             // Randomly generate the world FIRST (includes walls, decorative objects, and exit gate)
+            // This will create new objects and add them to engineObjects
             generateRandomWorld()
             
             // Create the player at grid position (0, 0) AFTER world generation
             player = new Player()
             
-            // Initialize camera on player
-            updateCamera()
+            // Initialize camera on player immediately (snap to position)
+            // Wait a frame to ensure player position is set
+            setTimeout(() => {
+              if (player) {
+                updateCamera(true)
+              }
+            }, 0)
             
             // Create enemies
             enemies = []
@@ -2323,23 +2423,25 @@ function Game() {
             
             if (exitGate) {
               // Purple enemy near exit (within 8x8 patrol area)
-              let exitEnemyX = exitGate.gridX
-              let exitEnemyY = exitGate.gridY
+              const exitGateForSpawn = exitGate as ExitGate
+              let exitEnemyX = exitGateForSpawn.gridX
+              let exitEnemyY = exitGateForSpawn.gridY
               let attempts = 0
               let foundPosition = false
               
               // Find a position near exit within patrol radius (not on exit itself)
               do {
-                exitEnemyX = exitGate.gridX + Math.floor(Math.random() * 9) - 4 // -4 to +4
-                exitEnemyY = exitGate.gridY + Math.floor(Math.random() * 9) - 4
+                exitEnemyX = exitGateForSpawn.gridX + Math.floor(Math.random() * 9) - 4 // -4 to +4
+                exitEnemyY = exitGateForSpawn.gridY + Math.floor(Math.random() * 9) - 4
                 attempts++
                 
                 // Check if position is valid
-                const isOnExit = (exitEnemyX === exitGate.gridX && exitEnemyY === exitGate.gridY)
+                const isOnExit = (exitEnemyX === exitGateForSpawn.gridX && exitEnemyY === exitGateForSpawn.gridY)
                 const isOnWall = walls.some(w => w.gridX === exitEnemyX && w.gridY === exitEnemyY)
                 const isOnEnemy = enemies.some(e => e.gridX === exitEnemyX && e.gridY === exitEnemyY)
                 const isOutOfBounds = Math.abs(exitEnemyX) > worldSize || Math.abs(exitEnemyY) > worldSize
-                const isOnPressurePlate = pressurePlate && exitEnemyX === pressurePlate.gridX && exitEnemyY === pressurePlate.gridY
+                const currentPressurePlate = pressurePlate
+                const isOnPressurePlate = currentPressurePlate !== null && exitEnemyX === (currentPressurePlate as PressurePlate).gridX && exitEnemyY === (currentPressurePlate as PressurePlate).gridY
                 
                 if (!isOnExit && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnPressurePlate) {
                   foundPosition = true
@@ -2349,9 +2451,11 @@ function Game() {
               if (foundPosition) {
                 const exitEnemy = new Enemy(exitEnemyX, exitEnemyY, 'purple')
                 enemies.push(exitEnemy)
-                console.log(`Purple enemy spawned near exit at (${exitEnemyX}, ${exitEnemyY}), exit at (${exitGate.gridX}, ${exitGate.gridY})`)
+                const exitGateForLog = exitGate as ExitGate
+                console.log(`Purple enemy spawned near exit at (${exitEnemyX}, ${exitEnemyY}), exit at (${exitGateForLog.gridX}, ${exitGateForLog.gridY})`)
               } else {
-                console.log(`Failed to spawn purple enemy near exit after ${attempts} attempts. Exit at (${exitGate.gridX}, ${exitGate.gridY})`)
+                const exitGateForLog = exitGate as ExitGate
+                console.log(`Failed to spawn purple enemy near exit after ${attempts} attempts. Exit at (${exitGateForLog.gridX}, ${exitGateForLog.gridY})`)
               }
             } else {
               console.log('No exitGate found when trying to spawn purple enemy')
@@ -2376,8 +2480,10 @@ function Game() {
                 const isOnWall = walls.some(w => w.gridX === blockEnemyX && w.gridY === blockEnemyY)
                 const isOnEnemy = enemies.some(e => e.gridX === blockEnemyX && e.gridY === blockEnemyY)
                 const isOutOfBounds = Math.abs(blockEnemyX) > worldSize || Math.abs(blockEnemyY) > worldSize
-                const isOnExit = exitGate && blockEnemyX === exitGate.gridX && blockEnemyY === exitGate.gridY
-                const isOnPressurePlate = pressurePlate && blockEnemyX === pressurePlate.gridX && blockEnemyY === pressurePlate.gridY
+                const currentExitGate = exitGate
+                const currentPressurePlate = pressurePlate
+                const isOnExit = currentExitGate !== null && blockEnemyX === (currentExitGate as ExitGate).gridX && blockEnemyY === (currentExitGate as ExitGate).gridY
+                const isOnPressurePlate = currentPressurePlate !== null && blockEnemyX === (currentPressurePlate as PressurePlate).gridX && blockEnemyY === (currentPressurePlate as PressurePlate).gridY
                 
                 if (!isOnBlock && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnExit && !isOnPressurePlate) {
                   foundPosition = true
@@ -2410,7 +2516,7 @@ function Game() {
                 attempts++
               } while (
                 (Math.sqrt(enemyX * enemyX + enemyY * enemyY) < 8 || // Too close to spawn
-                (exitGate && Math.sqrt((enemyX - exitGate.gridX) ** 2 + (enemyY - exitGate.gridY) ** 2) < 5) || // Too close to exit
+                (exitGate !== null && Math.sqrt((enemyX - (exitGate as ExitGate).gridX) ** 2 + (enemyY - (exitGate as ExitGate).gridY) ** 2) < 5) || // Too close to exit
                 walls.some(w => w.gridX === enemyX && w.gridY === enemyY) || // On a wall
                 enemies.some(e => e.gridX === enemyX && e.gridY === enemyY)) && // On another enemy
                 attempts < 50
