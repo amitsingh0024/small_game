@@ -2,7 +2,9 @@
 
 A modern, minimalist grid-based puzzle game built with React, TypeScript, and the LittleJS game engine. Navigate through a procedurally generated maze, solve puzzles, and escape from enemies!
 
-![Game Screenshot](https://via.placeholder.com/800x400?text=SMALL+-+A+Grid+Adventure)
+![Game Screenshot](./Screenshot%202025-12-02%20at%2012.06.30%20PM.png)
+
+*Main menu with animated grid background and minimalist design*
 
 ## 🎮 Game Overview
 
@@ -54,8 +56,8 @@ SMALL is a grid-based puzzle game where you control a square character navigatin
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/website.git
-cd website
+git clone https://github.com/amitsingh0024/small_game.git
+cd small_game
 ```
 
 2. Install dependencies:
