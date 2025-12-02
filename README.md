@@ -2,7 +2,7 @@
 
 A modern, minimalist grid-based puzzle game built with React, TypeScript, and the LittleJS game engine. Navigate through a procedurally generated maze, solve puzzles, and escape from enemies!
 
-![Game Screenshot](./screenshot.png)
+![Game Screenshot](https://github.com/amitsingh0024/small_game/raw/main/Screenshot%202025-12-02%20at%2012.06.30%20PM.png)
 
 *Main menu with animated grid background and minimalist design*
 
