@@ -381,10 +381,21 @@ class PowerUp extends EngineObject {
    * Check if player collected this power-up
    */
   checkCollection(): boolean {
+    // Early return if already collected or no player
     if (this.isCollected || !player) return false
     
+    // Only allow collection if player is on the same grid position
     if (this.gridX === player.gridX && this.gridY === player.gridY) {
+      // CRITICAL: Set isCollected FIRST to prevent duplicate collection
       this.isCollected = true
+      
+      // Double-check that power-up is not on a wall (should never happen, but safety check)
+      const isOnWall = walls.some(w => w.gridX === this.gridX && w.gridY === this.gridY)
+      if (isOnWall) {
+        console.warn(`Power-up at (${this.gridX}, ${this.gridY}) is on a wall! Removing it without activation.`)
+        return false // Don't activate, just remove the invalid power-up
+      }
+      
       return true
     }
     
@@ -1218,6 +1229,7 @@ let exitViewActive: boolean = false // Exit view power-up active
 let exitViewStepsRemaining: number = 0 // Number of player moves remaining for exit view
 let enemyViewActive: boolean = false // Enemy view power-up active
 let enemyViewStepsRemaining: number = 0 // Number of player moves remaining for enemy view
+let powerUpActivatedThisFrame: boolean = false // Prevent multiple power-up activations in same frame
 
 
 /**
@@ -1355,6 +1367,7 @@ function generateRandomWorld(): void {
       let powerUpX = 0
       let powerUpY = 0
       let attempts = 0
+      const maxAttempts = 500 // Increased attempts to ensure we find a valid position
       
       do {
         powerUpX = Math.floor(random() * (worldSize * 2 - 2)) - (worldSize - 1)
@@ -1365,13 +1378,18 @@ function generateRandomWorld(): void {
         (powerUpX === exitX && powerUpY === exitY) || // At exit
         (powerUpX === plateX && powerUpY === plateY) || // At pressure plate
         (powerUpX === blockX && powerUpY === blockY) || // At block
-        walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY) || // On a wall
+        walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY) || // On a wall - CRITICAL CHECK
         powerUps.some(p => p.gridX === powerUpX && p.gridY === powerUpY)) && // On another power-up
-        attempts < 200
+        attempts < maxAttempts
       )
       
-      if (attempts < 200) {
-        powerUps.push(new PowerUp(powerUpX, powerUpY, type))
+      if (attempts < maxAttempts) {
+        // Double-check that we're not on a wall before spawning
+        if (!walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY)) {
+          powerUps.push(new PowerUp(powerUpX, powerUpY, type))
+        } else {
+          console.warn(`Power-up ${type} would spawn on wall at (${powerUpX}, ${powerUpY}), skipping`)
+        }
       }
     }
   })
@@ -1456,6 +1474,50 @@ function updatePressurePlate(): void {
 }
 
 /**
+ * Check if a position is valid for spawning a power-up (not on walls, blocks, exit, etc.)
+ */
+function isValidPowerUpPosition(gridX: number, gridY: number): boolean {
+  const worldSize = 50
+  
+  // Too close to spawn
+  if (Math.sqrt(gridX * gridX + gridY * gridY) < 8) {
+    return false
+  }
+  
+  // At exit gate
+  if (exitGate && gridX === exitGate.gridX && gridY === exitGate.gridY) {
+    return false
+  }
+  
+  // At pressure plate
+  if (pressurePlate && gridX === pressurePlate.gridX && gridY === pressurePlate.gridY) {
+    return false
+  }
+  
+  // At block
+  if (blocks.some(b => b.gridX === gridX && b.gridY === gridY)) {
+    return false
+  }
+  
+  // On a wall - CRITICAL: Never spawn on walls
+  if (walls.some(w => w.gridX === gridX && w.gridY === gridY)) {
+    return false
+  }
+  
+  // On another power-up
+  if (powerUps.some(p => p.gridX === gridX && p.gridY === gridY)) {
+    return false
+  }
+  
+  // On an enemy
+  if (enemies.some(e => e.gridX === gridX && e.gridY === gridY)) {
+    return false
+  }
+  
+  return true
+}
+
+/**
  * Spawn a new power-up at a random location
  */
 function spawnPowerUp(type: 'ghost' | 'freeze' | 'exitView' | 'enemyView'): void {
@@ -1463,24 +1525,19 @@ function spawnPowerUp(type: 'ghost' | 'freeze' | 'exitView' | 'enemyView'): void
   let powerUpX = 0
   let powerUpY = 0
   let attempts = 0
+  const maxAttempts = 500 // Increased attempts to ensure we find a valid position
   
   do {
     powerUpX = Math.floor(Math.random() * (worldSize * 2 - 2)) - (worldSize - 1)
     powerUpY = Math.floor(Math.random() * (worldSize * 2 - 2)) - (worldSize - 1)
     attempts++
-  } while (
-    (Math.sqrt(powerUpX * powerUpX + powerUpY * powerUpY) < 8 || // Too close to spawn
-    (exitGate && powerUpX === exitGate.gridX && powerUpY === exitGate.gridY) || // At exit
-    (pressurePlate && powerUpX === pressurePlate.gridX && powerUpY === pressurePlate.gridY) || // At pressure plate
-    blocks.some(b => b.gridX === powerUpX && b.gridY === powerUpY) || // At block
-    walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY) || // On a wall
-    powerUps.some(p => p.gridX === powerUpX && p.gridY === powerUpY)) && // On another power-up
-    attempts < 200
-  )
+  } while (!isValidPowerUpPosition(powerUpX, powerUpY) && attempts < maxAttempts)
   
-  if (attempts < 200) {
+  if (attempts < maxAttempts) {
     powerUps.push(new PowerUp(powerUpX, powerUpY, type))
     console.log(`Power-up respawned at (${powerUpX}, ${powerUpY})`)
+  } else {
+    console.warn(`Failed to spawn power-up ${type} after ${maxAttempts} attempts`)
   }
 }
 
@@ -1489,6 +1546,24 @@ function spawnPowerUp(type: 'ghost' | 'freeze' | 'exitView' | 'enemyView'): void
  */
 function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView'): void {
   if (!player) return
+  
+  // Prevent duplicate activation - check if already active
+  if (powerType === 'ghost' && player.isGhostMode) {
+    console.warn('Ghost mode already active, preventing duplicate activation')
+    return
+  }
+  if (powerType === 'freeze' && enemiesFrozen) {
+    console.warn('Freeze already active, preventing duplicate activation')
+    return
+  }
+  if (powerType === 'exitView' && exitViewActive) {
+    console.warn('Exit view already active, preventing duplicate activation')
+    return
+  }
+  if (powerType === 'enemyView' && enemyViewActive) {
+    console.warn('Enemy view already active, preventing duplicate activation')
+    return
+  }
   
   if (powerType === 'ghost') {
     player.isGhostMode = true
@@ -1606,11 +1681,24 @@ function moveEnemies(): void {
   }
   
   // Check for power-up collection
-  powerUps.forEach(powerUp => {
+  // Process in reverse order and break immediately after first collection
+  // This prevents multiple power-ups from being collected in the same frame
+  for (let i = powerUps.length - 1; i >= 0; i--) {
+    const powerUp = powerUps[i]
+    // Skip if already collected or if we already activated a power-up this frame
+    if (powerUp.isCollected || powerUpActivatedThisFrame) continue
+    
+    // Check collection - this will set isCollected = true if collected
     if (powerUp.checkCollection()) {
-      activatePowerUp(powerUp.powerType)
+      // Verify it was actually marked as collected
+      if (powerUp.isCollected) {
+        powerUpActivatedThisFrame = true // Set flag before activation
+        activatePowerUp(powerUp.powerType)
+      }
+      // Break immediately after first collection to prevent duplicates
+      break
     }
-  })
+  }
   
   // Ghost mode is now managed by wall pass counter (no timer needed)
   
@@ -2339,6 +2427,9 @@ function Game() {
 
           // gameUpdate - Called every frame to update game logic
           () => {
+            // Reset power-up activation flag at start of each frame
+            powerUpActivatedThisFrame = false
+            
             // Don't update game logic if game is over or won
             if (gameOver || gameWon) return
             

@@ -16,10 +16,10 @@
   padding: 0;
   overflow: hidden;
   pointer-events: auto;
-  /* Grid background - matching game style - always white */
+  /* Grid background - matching game style - adapts to theme */
   background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
