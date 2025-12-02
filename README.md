@@ -131,7 +131,26 @@ website/
 
 ## 🚀 Deployment
 
-This project can be deployed to any static hosting service:
+### Deploy to Render (Recommended)
+
+1. **Sign up/Login** to [Render](https://render.com)
+
+2. **Create a New Static Site**:
+   - Click "New +" → "Static Site"
+   - Connect your GitHub repository: `amitsingh0024/small_game`
+   - Render will auto-detect the settings from `render.yaml`
+
+3. **Configure (if needed)**:
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+   - **Node Version**: `18.x` (or higher)
+
+4. **Deploy**:
+   - Click "Create Static Site"
+   - Render will build and deploy automatically
+   - Your site will be live at `https://your-app-name.onrender.com`
+
+### Alternative Deployment Options
 
 - **Vercel**: Connect your GitHub repo for automatic deployments
 - **Netlify**: Drag and drop the `dist` folder or connect via Git
