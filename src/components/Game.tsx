@@ -2228,6 +2228,11 @@ function Game() {
     const container = gameContainerRef.current
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Don't handle touch events if game is over or won (let buttons work)
+      if (gameOverState || gameWonState) {
+        return
+      }
+      
       // Only handle if there's a single touch
       if (e.touches.length === 1) {
         touchStartX = e.touches[0].clientX
@@ -2236,6 +2241,14 @@ function Game() {
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
+      // Don't handle touch events if game is over or won (let buttons work)
+      if (gameOverState || gameWonState) {
+        // Reset touch positions
+        touchStartX = 0
+        touchStartY = 0
+        return
+      }
+      
       // Only handle if there was a single touch
       if (e.changedTouches.length === 1 && touchStartX !== 0 && touchStartY !== 0) {
         // Only register swipe if player exists and is not currently moving
@@ -2273,6 +2286,11 @@ function Game() {
     }
 
     const handleTouchMove = (e: TouchEvent) => {
+      // Don't prevent default if game is over or won (let buttons work)
+      if (gameOverState || gameWonState) {
+        return
+      }
+      
       // Prevent default scrolling behavior during game
       if (!showMenu) {
         e.preventDefault()
@@ -2289,7 +2307,7 @@ function Game() {
       container.removeEventListener('touchend', handleTouchEnd)
       container.removeEventListener('touchmove', handleTouchMove)
     }
-  }, [showMenu])
+  }, [showMenu, gameOverState, gameWonState]) // Add dependencies so handlers update when game state changes
 
   // Update canvas background when theme changes
   useEffect(() => {
