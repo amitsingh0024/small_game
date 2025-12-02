@@ -11,6 +11,11 @@
   z-index: 1000;
   animation: fadeIn 0.3s ease-in;
   backdrop-filter: blur(4px);
+  /* Ensure touch events work on mobile - critical for button interaction */
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  /* Block all events from reaching elements behind */
+  -webkit-tap-highlight-color: transparent;
   margin: 0;
   padding: 0;
 }
@@ -35,6 +40,10 @@
   animation: slideIn 0.4s ease-out;
   position: relative;
   overflow: hidden;
+  /* Ensure content is interactive on mobile */
+  pointer-events: auto;
+  touch-action: manipulation;
+  z-index: 1001;
 }
 
 .victory-content::before {
@@ -137,6 +146,17 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   min-width: 150px;
+  /* Ensure buttons work on mobile - critical settings */
+  touch-action: auto !important;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1001;
+  /* Prevent any interference */
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .action-button.next {

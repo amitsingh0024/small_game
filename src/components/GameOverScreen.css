@@ -13,9 +13,11 @@
   backdrop-filter: blur(4px);
   margin: 0;
   padding: 0;
-  /* Ensure touch events work on mobile */
-  pointer-events: auto;
-  touch-action: manipulation;
+  /* Ensure touch events work on mobile - critical for button interaction */
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  /* Block all events from reaching elements behind */
+  -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes fadeIn {
@@ -102,14 +104,17 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   min-width: 150px;
-  /* Ensure buttons work on mobile */
-  touch-action: manipulation;
+  /* Ensure buttons work on mobile - critical settings */
+  touch-action: auto !important;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
   z-index: 1001;
+  /* Prevent any interference */
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 .action-button.restart {

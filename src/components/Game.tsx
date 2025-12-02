@@ -177,7 +177,7 @@ class ExitGate extends EngineObject {
     }
     
     // Draw exit gate
-    drawRect(this.pos, this.size, this.color)
+      drawRect(this.pos, this.size, this.color)
     // Add border (reuse objects)
     reusableExitBorderSize.x = this.size.x * 0.85
     reusableExitBorderSize.y = this.size.y * 0.85
@@ -1065,7 +1065,7 @@ class Player extends EngineObject {
       let moved = false
       let newGridX = this.gridX
       let newGridY = this.gridY
-      
+
       // Separate mobile and desktop controls - they work independently
       const isMobile = isMobileDevice()
       
@@ -1092,18 +1092,18 @@ class Player extends EngineObject {
         }
       } else {
         // Desktop controls - only use keyboard input
-        if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W')) {
-          newGridY = this.gridY + 1
-          moved = true
-        } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S')) {
-          newGridY = this.gridY - 1
-          moved = true
-        } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A')) {
-          newGridX = this.gridX - 1
-          moved = true
-        } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D')) {
-          newGridX = this.gridX + 1
-          moved = true
+      if (keyWasPressed('ArrowUp') || keyWasPressed('w') || keyWasPressed('W')) {
+        newGridY = this.gridY + 1
+        moved = true
+      } else if (keyWasPressed('ArrowDown') || keyWasPressed('s') || keyWasPressed('S')) {
+        newGridY = this.gridY - 1
+        moved = true
+      } else if (keyWasPressed('ArrowLeft') || keyWasPressed('a') || keyWasPressed('A')) {
+        newGridX = this.gridX - 1
+        moved = true
+      } else if (keyWasPressed('ArrowRight') || keyWasPressed('d') || keyWasPressed('D')) {
+        newGridX = this.gridX + 1
+        moved = true
         }
       }
 
@@ -1166,13 +1166,13 @@ class Player extends EngineObject {
           
           // Double-check block is not moving before push attempt (race condition protection)
           if (!block.isMoving) {
-            if (block.push(pushX, pushY)) {
-              // Block can be pushed, so player can move
-              this.targetGridX = newGridX
-              this.targetGridY = newGridY
-              this.isMoving = true
-            } else {
-              // Block can't be pushed, cancel movement
+          if (block.push(pushX, pushY)) {
+            // Block can be pushed, so player can move
+            this.targetGridX = newGridX
+            this.targetGridY = newGridY
+            this.isMoving = true
+          } else {
+            // Block can't be pushed, cancel movement
               return
             }
           } else {
@@ -1434,7 +1434,7 @@ function generateRandomWorld(): void {
       if (attempts < maxAttempts) {
         // Double-check that we're not on a wall before spawning
         if (!walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY)) {
-          powerUps.push(new PowerUp(powerUpX, powerUpY, type))
+        powerUps.push(new PowerUp(powerUpX, powerUpY, type))
         } else {
           console.warn(`Power-up ${type} would spawn on wall at (${powerUpX}, ${powerUpY}), skipping`)
         }
@@ -1471,9 +1471,9 @@ function updateViewportBounds(): void {
   // Recalculate if player moved to a different grid cell (including during movement)
   if (cachedViewportBounds.playerGridX !== playerGridX || 
       cachedViewportBounds.playerGridY !== playerGridY) {
-    const viewportOffsetX = Math.floor(VIEWPORT_WIDTH / 2)
-    const viewportOffsetY = Math.floor(VIEWPORT_HEIGHT / 2)
-    
+  const viewportOffsetX = Math.floor(VIEWPORT_WIDTH / 2)
+  const viewportOffsetY = Math.floor(VIEWPORT_HEIGHT / 2)
+  
     cachedViewportBounds.minX = playerGridX - viewportOffsetX
     cachedViewportBounds.maxX = playerGridX + viewportOffsetX
     cachedViewportBounds.minY = playerGridY - viewportOffsetY
@@ -1509,14 +1509,14 @@ function updateCamera(immediate: boolean = false): void {
     cameraPos.x = targetX
     cameraPos.y = targetY
   } else {
-    // Smooth camera following using linear interpolation
-    const cameraSpeed = 10 // Higher = faster following, adjust for smoothness
-    const dx = targetX - cameraPos.x
-    const dy = targetY - cameraPos.y
-    
-    // Move camera towards target smoothly
-    cameraPos.x += dx * cameraSpeed * timeDelta
-    cameraPos.y += dy * cameraSpeed * timeDelta
+  // Smooth camera following using linear interpolation
+  const cameraSpeed = 10 // Higher = faster following, adjust for smoothness
+  const dx = targetX - cameraPos.x
+  const dy = targetY - cameraPos.y
+  
+  // Move camera towards target smoothly
+  cameraPos.x += dx * cameraSpeed * timeDelta
+  cameraPos.y += dy * cameraSpeed * timeDelta
   }
 }
 
@@ -1750,8 +1750,8 @@ function moveEnemies(): void {
       // Verify it was actually marked as collected
       if (powerUp.isCollected) {
         powerUpActivatedThisFrame = true // Set flag before activation
-        activatePowerUp(powerUp.powerType)
-      }
+      activatePowerUp(powerUp.powerType)
+    }
       // Break immediately after first collection to prevent duplicates
       break
     }
@@ -2651,7 +2651,7 @@ function Game() {
     setGameOverState(false)
     setGameWonState(false)
     // Reset game state to prevent stuck positions
-    restartGame()
+      restartGame()
     // Hide menu to start game
     setShowMenu(false)
   }
@@ -2688,8 +2688,8 @@ function Game() {
           margin: 0, 
           padding: 0,
           position: 'relative',
-          zIndex: showMenu ? -1 : 1,
-          pointerEvents: showMenu ? 'none' : 'auto'
+          zIndex: showMenu || gameOverState || gameWonState ? -1 : 1,
+          pointerEvents: showMenu || gameOverState || gameWonState ? 'none' : 'auto'
         }} 
       />
       {showMenu && <MenuScreen onStart={handleStartGame} />}
