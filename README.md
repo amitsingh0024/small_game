@@ -6,6 +6,8 @@ A modern, minimalist grid-based puzzle game built with React, TypeScript, and th
 
 *Main menu with animated grid background and minimalist design*
 
+> **Note**: The screenshot shows the modern minimalist menu design with animated colored squares moving across the grid background.
+
 ## 🎮 Game Overview
 
 SMALL is a grid-based puzzle game where you control a square character navigating through a maze. Your goal is to push blocks onto pressure plates to open exit gates while avoiding enemies that chase you.
