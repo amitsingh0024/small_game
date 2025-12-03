@@ -15,6 +15,17 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
 
+  const handleOptionsClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowOptions(true)
+  }
+
+  const handleOptionsTouch = (e: React.TouchEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowOptions(true)
+  }
+
   if (showOptions) {
     return <OptionsMenu onBack={() => setShowOptions(false)} />
   }
@@ -112,7 +123,11 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
           <button className="menu-button" onClick={() => setShowHowToPlay(true)}>
             How to Play
           </button>
-          <button className="menu-button" onClick={() => setShowOptions(true)}>
+          <button 
+            className="menu-button" 
+            onClick={handleOptionsClick}
+            onTouchEnd={handleOptionsTouch}
+          >
             Options
           </button>
         </div>

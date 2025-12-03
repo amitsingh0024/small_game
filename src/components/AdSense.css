@@ -7,6 +7,10 @@
   min-height: 100px;
   background: var(--bg-primary);
   position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .adsense-container ins {
@@ -14,6 +18,8 @@
   width: 100%;
   max-width: 100%;
   background: transparent !important;
+  position: relative;
+  z-index: 1;
 }
 
 /* Ensure AdSense iframe has transparent background */
