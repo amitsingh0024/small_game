@@ -69,6 +69,7 @@ export function AdSense({
           display: 'block',
           width: '100%',
           height: 'auto',
+          background: 'transparent',
         }}
         data-ad-client="ca-pub-8363097623676710"
         data-ad-slot={adSlot}
