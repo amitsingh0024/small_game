@@ -5,15 +5,20 @@ import { AdSense } from './AdSense'
 
 interface MenuScreenProps {
   onStart: () => void
+  currentSkin?: string
+  onSkinSelect?: (skin: string) => void
 }
 
 /**
  * Main Menu Screen Component
  * Shows when the game first loads or when paused
  */
-export function MenuScreen({ onStart }: MenuScreenProps) {
+export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuScreenProps) {
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
+  const [showSkins, setShowSkins] = useState(false)
+
+  const availableSkins = [':)', '>.<', '^_^', 'o_O', '-.-', 'XD', ':P', '8)']
 
   const handleOptionsClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -30,6 +35,57 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
     return <OptionsMenu onBack={() => setShowOptions(false)} />
   }
 
+  if (showSkins) {
+    return (
+      <div className="menu-screen">
+        {/* Animated squares */}
+        <div className="animated-square square-1"></div>
+        <div className="animated-square square-2"></div>
+        <div className="animated-square square-3"></div>
+        <div className="animated-square square-4"></div>
+        <div className="animated-square square-5"></div>
+        <div className="animated-square square-6"></div>
+
+        <div className="menu-content">
+          <button className="back-button" onClick={() => setShowSkins(false)}>
+            ← Back
+          </button>
+
+          <div className="menu-title">
+            <h1>Select Skin</h1>
+          </div>
+
+          <div className="skins-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '1rem',
+            marginTop: '2rem',
+            marginBottom: '2rem'
+          }}>
+            {availableSkins.map((skin) => (
+              <button
+                key={skin}
+                className={`menu-button ${currentSkin === skin ? 'selected' : ''}`}
+                style={{
+                  fontSize: '1.5rem',
+                  padding: '1rem',
+                  background: currentSkin === skin ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.5)',
+                  border: currentSkin === skin ? '2px solid #fff' : '1px solid rgba(255, 255, 255, 0.2)',
+                  minWidth: '100px'
+                }}
+                onClick={() => {
+                  if (onSkinSelect) onSkinSelect(skin)
+                }}
+              >
+                {skin}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (showHowToPlay) {
     return (
       <div className="menu-screen">
@@ -40,16 +96,16 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
         <div className="animated-square square-4"></div>
         <div className="animated-square square-5"></div>
         <div className="animated-square square-6"></div>
-        
+
         <div className="menu-content how-to-play-content">
           <button className="back-button" onClick={() => setShowHowToPlay(false)}>
             ← Back
           </button>
-          
+
           <div className="menu-title">
             <h1>How to Play</h1>
           </div>
-          
+
           <div className="menu-instructions">
             <h2>Controls</h2>
             <ul>
@@ -58,7 +114,7 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
               <li>Activate the pressure plate to open the <strong>exit gate</strong></li>
               <li>Escape the enemies and reach the exit to win!</li>
             </ul>
-            
+
             <div className="power-ups-info">
               <h2>Power-ups</h2>
               <div className="power-up-list">
@@ -109,32 +165,35 @@ export function MenuScreen({ onStart }: MenuScreenProps) {
       <div className="animated-square square-4"></div>
       <div className="animated-square square-5"></div>
       <div className="animated-square square-6"></div>
-      
+
       <div className="menu-content">
         <div className="menu-title">
           <h1>SMALL</h1>
           <p className="menu-subtitle">A Grid Adventure</p>
         </div>
-        
+
         <div className="menu-options">
           <button className="menu-button play" onClick={onStart}>
             Play
           </button>
+          <button className="menu-button" onClick={() => setShowSkins(true)}>
+            Skins: {currentSkin}
+          </button>
           <button className="menu-button" onClick={() => setShowHowToPlay(true)}>
             How to Play
           </button>
-          <button 
-            className="menu-button" 
+          <button
+            className="menu-button"
             onClick={handleOptionsClick}
             onTouchEnd={handleOptionsTouch}
           >
             Options
           </button>
         </div>
-        
+
         {/* AdSense Ad */}
-        <AdSense 
-          adSlot="9697869538" 
+        <AdSense
+          adSlot="9697869538"
           adFormat="auto"
           fullWidthResponsive={true}
           style={{ marginTop: '2rem' }}
