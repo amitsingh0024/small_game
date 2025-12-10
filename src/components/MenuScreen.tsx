@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './MenuScreen.css'
 import { OptionsMenu } from './OptionsMenu'
 import { AdSense } from './AdSense'
+import { PrivacyPolicy } from './PrivacyPolicy'
 
 interface MenuScreenProps {
   onStart: () => void
@@ -17,6 +18,7 @@ export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuSc
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   const [showSkins, setShowSkins] = useState(false)
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
 
   const availableSkins = [':)', '>.<', '^_^', 'o_O', '-.-', 'XD', ':P', '8)']
 
@@ -29,6 +31,10 @@ export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuSc
     e.stopPropagation()
     e.preventDefault()
     setShowOptions(true)
+  }
+
+  if (showPrivacyPolicy) {
+    return <PrivacyPolicy onBack={() => setShowPrivacyPolicy(false)} />
   }
 
   if (showOptions) {
@@ -198,6 +204,16 @@ export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuSc
           fullWidthResponsive={true}
           style={{ marginTop: '2rem' }}
         />
+
+        {/* Privacy Policy Link */}
+        <div className="privacy-link-container">
+          <button
+            className="privacy-link"
+            onClick={() => setShowPrivacyPolicy(true)}
+          >
+            Privacy Policy
+          </button>
+        </div>
       </div>
     </div>
   )

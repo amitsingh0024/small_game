@@ -365,6 +365,33 @@
   background: var(--text-secondary);
 }
 
+.privacy-link-container {
+  margin-top: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.privacy-link {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 0.5rem;
+  transition: color 0.2s ease;
+  font-family: inherit;
+}
+
+.privacy-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.privacy-link:active {
+  opacity: 0.7;
+}
+
 @media (max-width: 768px) {
   .menu-content {
     padding: 3rem 2rem;
@@ -390,6 +417,10 @@
   .menu-button.play {
     font-size: 1.05rem;
     padding: 1.15rem 1.5rem;
+  }
+
+  .privacy-link {
+    font-size: 0.8rem;
   }
 }
 
