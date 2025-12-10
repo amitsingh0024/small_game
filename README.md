@@ -2,11 +2,11 @@
 
 A modern, minimalist grid-based puzzle game built with React, TypeScript, and the LittleJS game engine. Navigate through a procedurally generated maze, solve puzzles, and escape from enemies!
 
+🎮 **Play Now**: [https://small-umtu.onrender.com/](https://small-umtu.onrender.com/)
+
 ![Game Screenshot](https://github.com/amitsingh0024/small_game/raw/main/Screenshot%202025-12-02%20at%2012.06.30%20PM.png)
 
 *Main menu with animated grid background and minimalist design*
-
-> **Note**: The screenshot shows the modern minimalist menu design with animated colored squares moving across the grid background.
 
 ## 🎮 Game Overview
 
@@ -25,8 +25,12 @@ SMALL is a grid-based puzzle game where you control a square character navigatin
   - **Freeze** (Blue): Freeze all enemies for 7 moves
   - **Exit View** (Yellow): See exit and block locations
   - **Enemy View** (Orange): See enemy indicators outside your viewport
+- **Theme System**: Light and dark mode support with persistent theme preference
 - **Modern UI**: Clean, minimalist menu design with animated grid background
+- **Options Menu**: Customizable game settings
 - **Optimized Performance**: Highly optimized rendering for smooth 60 FPS gameplay
+- **SEO Optimized**: Comprehensive meta tags, Open Graph, and structured data for better search visibility
+- **AdSense Integration**: Monetization support with Google AdSense
 
 ## 🎯 How to Play
 
@@ -47,6 +51,7 @@ SMALL is a grid-based puzzle game where you control a square character navigatin
 - Ghost mode lets you pass through walls (limited uses)
 - Freeze enemies when you need to make a quick escape
 - Exit View and Enemy View help you plan your route
+- Toggle between light and dark themes in the options menu
 
 ## 🚀 Getting Started
 
@@ -88,29 +93,62 @@ The built files will be in the `dist` directory, ready for deployment.
 npm run preview
 ```
 
+### Linting
+
+```bash
+npm run lint
+```
+
 ## 🛠️ Tech Stack
 
 - **React 19** - UI framework
 - **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
+- **Vite 7** - Build tool and dev server
 - **LittleJS Engine** - Game engine for rendering and game loop
 - **CSS3** - Styling with modern features
+- **ESLint** - Code linting and quality
 
 ## 📁 Project Structure
 
 ```
 website/
+├── public/
+│   ├── favicon.svg
+│   ├── robots.txt          # SEO: Search engine crawler instructions
+│   ├── sitemap.xml         # SEO: Site structure for search engines
+│   └── vite.svg
 ├── src/
+│   ├── assets/
+│   │   └── react.svg
 │   ├── components/
-│   │   ├── Game.tsx          # Main game component
-│   │   ├── MenuScreen.tsx    # Menu UI
-│   │   ├── GameOverScreen.tsx # Game over screen
-│   │   └── VictoryScreen.tsx # Victory screen
-│   ├── App.tsx               # Root component
-│   └── main.tsx              # Entry point
-├── public/                   # Static assets
-├── package.json              # Dependencies
-└── README.md                 # This file
+│   │   ├── AdSense.tsx     # Google AdSense integration component
+│   │   ├── AdSense.css
+│   │   ├── Game.tsx         # Main game component with LittleJS integration
+│   │   ├── Game.css
+│   │   ├── GameOverScreen.tsx
+│   │   ├── GameOverScreen.css
+│   │   ├── MenuScreen.tsx   # Main menu UI
+│   │   ├── MenuScreen.css
+│   │   ├── OptionsMenu.tsx  # Game options and settings
+│   │   ├── OptionsMenu.css
+│   │   ├── VictoryScreen.tsx
+│   │   └── VictoryScreen.css
+│   ├── contexts/
+│   │   └── ThemeContext.tsx # Theme management (light/dark mode)
+│   ├── App.tsx              # Root component
+│   ├── App.css
+│   ├── main.tsx             # Application entry point
+│   └── index.css            # Global styles
+├── dist/                    # Production build output
+├── index.html               # HTML template with SEO meta tags
+├── vite.config.ts           # Vite configuration
+├── tsconfig.json            # TypeScript configuration
+├── tsconfig.app.json        # TypeScript app configuration
+├── tsconfig.node.json       # TypeScript node configuration
+├── eslint.config.js         # ESLint configuration
+├── render.yaml              # Render.com deployment configuration
+├── package.json             # Dependencies and scripts
+└── README.md                # This file
 ```
 
 ## 🎨 Game Mechanics
@@ -129,9 +167,27 @@ website/
 - Each power-up has a limited duration or uses
 - Visual indicators show active power-up effects
 
+### Theme System
+- Light and dark mode support
+- Theme preference saved to localStorage
+- Smooth theme transitions
+
+## 🔍 SEO Features
+
+The project includes comprehensive SEO optimization:
+
+- **Meta Tags**: Title, description, keywords, and author information
+- **Open Graph Tags**: Optimized for Facebook, LinkedIn, and other social platforms
+- **Twitter Card Tags**: Enhanced previews when shared on Twitter/X
+- **Structured Data (JSON-LD)**: Schema.org VideoGame markup for better search engine understanding
+- **Sitemap.xml**: Helps search engines discover and index pages
+- **Robots.txt**: Guides search engine crawlers
+
 ## 🚀 Deployment
 
-### Deploy to Render (Recommended)
+### Deploy to Render (Current Setup)
+
+The project is configured for deployment on Render.com:
 
 1. **Sign up/Login** to [Render](https://render.com)
 
@@ -148,7 +204,7 @@ website/
 4. **Deploy**:
    - Click "Create Static Site"
    - Render will build and deploy automatically
-   - Your site will be live at `https://your-app-name.onrender.com`
+   - Your site will be live at `https://small-umtu.onrender.com/`
 
 ### Alternative Deployment Options
 
@@ -157,9 +213,34 @@ website/
 - **GitHub Pages**: Use GitHub Actions to build and deploy
 - **Any static host**: Upload the `dist` folder contents
 
+### Post-Deployment SEO Steps
+
+1. Submit your sitemap to Google Search Console:
+   - Go to [Google Search Console](https://search.google.com/search-console)
+   - Add your property: `https://small-umtu.onrender.com/`
+   - Submit sitemap: `https://small-umtu.onrender.com/sitemap.xml`
+
+2. Verify your site is indexed by search engines
+
+3. Monitor performance using Google Analytics (if integrated)
+
+## 📊 Performance
+
+- Optimized for 60 FPS gameplay
+- Fast initial load time
+- Efficient rendering with LittleJS engine
+- Minimal bundle size with Vite's tree-shaking
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Guidelines
+
+1. Follow the existing code style
+2. Run `npm run lint` before committing
+3. Test your changes thoroughly
+4. Update documentation if needed
 
 ## 📝 License
 
@@ -169,7 +250,10 @@ This project is open source and available under the MIT License.
 
 - Built with [LittleJS](https://github.com/KilledByAPixel/LittleJS) game engine
 - Inspired by classic grid-based puzzle games
+- Deployed on [Render](https://render.com)
 
 ---
+
+**Live Game**: [https://small-umtu.onrender.com/](https://small-umtu.onrender.com/)
 
 Made with ❤️ using React and TypeScript
