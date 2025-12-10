@@ -372,8 +372,8 @@
 }
 
 .privacy-link {
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
@@ -381,15 +381,30 @@
   padding: 0.5rem;
   transition: color 0.2s ease;
   font-family: inherit;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  font-weight: 400 !important;
 }
 
 .privacy-link:hover {
   color: var(--text-primary);
   text-decoration: underline;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .privacy-link:active {
   opacity: 0.7;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.privacy-link:focus,
+.privacy-link:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 768px) {
