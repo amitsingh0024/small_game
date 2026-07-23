@@ -7,9 +7,11 @@ import {
   keyWasPressed,
   drawRect,
   drawText,
+  drawTextScreen,
   drawLine,
   drawCircle,
   cameraPos,
+  mainCanvasSize,
   timeDelta,
   setCanvasClearColor,
   engineObjects,
@@ -21,6 +23,8 @@ import {
   YELLOW,
   GRAY,
   ORANGE,
+  Sound,
+  ParticleEmitter,
 } from 'littlejsengine'
 import './Game.css'
 import { MenuScreen } from './MenuScreen'
@@ -53,6 +57,76 @@ const reusableFrozenEnemyColor = new Color(0.3, 0.7, 0.9, 1)
 let powerUpPulseCache = { time: 0, pulse: 1, innerPulse: 1 }
 const POWER_UP_PULSE_UPDATE_INTERVAL = 16 // Update every ~16ms (60fps)
 
+// ---------------------------------------------------------------------------
+// Game feel: sound, particles, and screen shake.
+// Sounds are generated procedurally with zzfx (LittleJS built-in) so there are
+// no audio files to load. Particles use the built-in emitter. All lightweight.
+// ---------------------------------------------------------------------------
+
+// Sounds are created lazily (after the engine/audio is ready) via initEffects().
+type SfxBank = {
+  move: Sound
+  push: Sound
+  plate: Sound
+  powerup: Sound
+  win: Sound
+  death: Sound
+}
+let sfx: SfxBank | null = null
+let soundOn = true // Can be toggled from the options menu
+
+function initEffects(): void {
+  if (sfx) return
+  // zzfx parameter arrays — holes fall back to zzfx defaults.
+  sfx = {
+    move: new Sound([0.25, 0, 140, 0, 0.01, 0.04, 0, 1.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.02]),
+    push: new Sound([0.5, 0, 90, 0, 0.02, 0.08, 1, 0.6, -2, 0, 0, 0, 0, 0.3, 0, 0, 0.03, 0.7, 0.03]),
+    plate: new Sound([1.1, 0, 523, 0.01, 0.06, 0.18, 0, 1.4, 0, 0, 200, 0.05, 0, 0, 0, 0, 0, 0.6, 0.08]),
+    powerup: new Sound([0.9, 0, 400, 0.01, 0.08, 0.2, 0, 1.8, 0, 0, 320, 0.05, 0, 0, 0, 0, 0, 0.7, 0.06]),
+    win: new Sound([1.4, 0, 392, 0.03, 0.2, 0.35, 0, 1.5, 0, 0, 180, 0.07, 0.12, 0, 0, 0, 0, 0.6, 0.1]),
+    death: new Sound([1.2, 0, 180, 0, 0.08, 0.28, 4, 0.8, -3, 0, 0, 0, 0, 0.6, 0, 0.2, 0.05, 0.5, 0.1]),
+  }
+}
+
+function playSfx(name: keyof SfxBank, volume: number = 1): void {
+  if (!soundOn || !sfx) return
+  sfx[name].play(undefined, volume)
+}
+
+// Screen shake — a decaying magnitude applied as a small camera offset each frame.
+let cameraShake = 0
+function triggerShake(amount: number): void {
+  cameraShake = Math.max(cameraShake, amount)
+}
+
+// One-shot particle burst at a world position. No tile texture -> solid squares.
+function burst(pos: Vector2, color: Color, intensity: number = 1): void {
+  const fadedColor = color.scale(1, 0) // same rgb, alpha 0 -> fades out
+  new ParticleEmitter(
+    pos,            // position
+    0,              // angle
+    0.35,           // emitSize (circle diameter)
+    0.1,            // emitTime (one-shot, self-destructs)
+    90 * intensity, // emitRate -> particle count
+    Math.PI,        // emitConeAngle (full circle)
+    undefined,      // tileInfo -> solid squares
+    color, color,   // colorStartA / colorStartB
+    fadedColor, fadedColor, // colorEndA / colorEndB
+    0.5,            // particleTime (lifespan)
+    0.2, 0.02,      // sizeStart, sizeEnd
+    0.13,           // speed
+    0.1,            // angleSpeed
+    0.94,           // damping
+    1,              // angleDamping
+    0,              // gravityScale
+    Math.PI,        // particleConeAngle
+    0.1,            // fadeRate
+    0.3,            // randomness
+    false,          // collideTiles
+    false           // additive
+  )
+}
+
 /**
  * Pressure Plate class - Activates when a block is placed on it
  */
@@ -84,9 +158,19 @@ class PressurePlate extends EngineObject {
     const platePos = new Vector2(this.gridX * GRID_SIZE + GRID_SIZE / 2, this.gridY * GRID_SIZE + GRID_SIZE / 2)
     const objectsOnPlate = engineObjectsCollect(platePos, GRID_SIZE * 0.4, engineObjects)
     const hasBlock = objectsOnPlate.some(obj => obj instanceof Block)
-    const hasPlayer = objectsOnPlate.some(obj => obj instanceof Player)
 
-    this.isActivated = hasBlock || hasPlayer
+    // Only a block activates the plate. The player standing on it must not
+    // open the exit (that would let the gate flicker open/closed as the player
+    // steps on and off, defeating the block puzzle).
+    const wasActivated = this.isActivated
+    this.isActivated = hasBlock
+
+    // Feedback on the moment a block locks the plate in.
+    if (this.isActivated && !wasActivated) {
+      playSfx('plate')
+      burst(this.pos, GREEN, 1.2)
+      triggerShake(0.12)
+    }
 
     // Change color based on activation
     if (this.isActivated) {
@@ -140,7 +224,7 @@ class ExitGate extends EngineObject {
    * Update exit gate state based on pressure plate activation
    */
   update(): void {
-    if (pressurePlate && pressurePlate.isActivated) {
+    if (allPlatesActivated()) {
       if (!this.isOpen) {
         this.isOpen = true
         this.color = GREEN // Change to green when open
@@ -626,6 +710,19 @@ class Enemy extends EngineObject {
   }
 
   /**
+   * Snap the enemy to a grid cell, cancelling any in-progress movement.
+   * Used by undo / restart-level.
+   */
+  setPosition(gridX: number, gridY: number): void {
+    this.gridX = gridX
+    this.gridY = gridY
+    this.targetGridX = gridX
+    this.targetGridY = gridY
+    this.isMoving = false
+    this.updateWorldPosition()
+  }
+
+  /**
    * Move to target grid position smoothly
    */
   private moveToTarget(): void {
@@ -659,8 +756,10 @@ class Enemy extends EngineObject {
     const targetPos = new Vector2(gridX * GRID_SIZE + GRID_SIZE / 2, gridY * GRID_SIZE + GRID_SIZE / 2)
     const objectsAtTarget = engineObjectsCollect(targetPos, GRID_SIZE * 0.5, engineObjects)
 
-    // Check for closed exit gate
-    if (exitGate && exitGate.wouldCollide(gridX, gridY)) {
+    // The exit cell is off-limits to enemies at all times. When closed it is a
+    // solid gate; when open we still keep enemies off it so one can't camp the
+    // winning tile and turn a win into a death.
+    if (exitGate && gridX === exitGate.gridX && gridY === exitGate.gridY) {
       return true
     }
 
@@ -669,10 +768,20 @@ class Enemy extends EngineObject {
       return true
     }
 
-    // Check for other enemies (collision detection - enemies can't overlap)
-    const enemyAtTarget = objectsAtTarget.find(obj => obj instanceof Enemy && obj !== this)
-    if (enemyAtTarget) {
-      return true // Blocked by another enemy
+    // Check for other enemies (collision detection - enemies can't overlap).
+    // Enemies move one at a time within a turn, and a moving enemy keeps its
+    // old gridX/gridY (and pos) until its slide animation finishes. So checking
+    // only current positions lets two enemies claim the same cell in one turn
+    // (they visibly stack, especially when funnelling around a block). We also
+    // treat each enemy's reserved target cell as occupied while it is moving.
+    for (const other of enemies) {
+      if (other === this) continue
+      if (other.gridX === gridX && other.gridY === gridY) {
+        return true // Another enemy currently occupies the cell
+      }
+      if (other.isMoving && other.targetGridX === gridX && other.targetGridY === gridY) {
+        return true // Another enemy has already reserved this cell this turn
+      }
     }
 
     return false
@@ -1175,6 +1284,7 @@ class Player extends EngineObject {
               this.targetGridX = newGridX
               this.targetGridY = newGridY
               this.isMoving = true
+              playSfx('push')
             } else {
               // Block can't be pushed, cancel movement
               return
@@ -1193,16 +1303,24 @@ class Player extends EngineObject {
             this.targetGridX = newGridX
             this.targetGridY = newGridY
             this.isMoving = true
+            playSfx('push')
           }
         } else {
           // No block or frozen enemy, player can move freely
           this.targetGridX = newGridX
           this.targetGridY = newGridY
           this.isMoving = true
+          playSfx('move', 0.6)
         }
 
-        // Mark that player just moved (for enemy turn-based movement)
-        playerJustMoved = true
+        // If the player actually committed to a move this turn, record an undo
+        // snapshot of the pre-move state and count the move.
+        if (this.isMoving) {
+          pushUndoSnapshot()
+          moveCount++
+          // Mark that player just moved (for enemy turn-based movement)
+          playerJustMoved = true
+        }
 
         // Don't snap position - smooth movement will handle it
         // Position will be updated smoothly in moveToTarget()
@@ -1245,9 +1363,129 @@ class Player extends EngineObject {
 // Game state
 let player: Player | null = null
 let blocks: Block[] = []
-let pressurePlate: PressurePlate | null = null
+// One or more pressure plates. The exit opens only when ALL are activated.
+let pressurePlates: PressurePlate[] = []
+// Progression: increases with each level cleared. Drives puzzle size, wall
+// density and enemy count.
+let currentLevel: number = 1
+// Move counter for the current level (used for the end-of-level star rating).
+let moveCount: number = 0
+// Rough "par" move count for the current level; drives the star rating.
+let levelParMoves: number = 0
+
+/** 1-3 stars based on how close the clear was to par. */
+function computeStars(): number {
+  if (levelParMoves <= 0) return 3
+  if (moveCount <= levelParMoves * 1.25) return 3
+  if (moveCount <= levelParMoves * 1.75) return 2
+  return 1
+}
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let doors: Door[] = []
+
+/**
+ * The exit opens only when every pressure plate is held down by a block.
+ */
+function allPlatesActivated(): boolean {
+  return pressurePlates.length > 0 && pressurePlates.every(p => p.isActivated)
+}
+
+// ---------------------------------------------------------------------------
+// Seeded RNG. When a seed is set (e.g. the daily challenge) level generation is
+// fully reproducible; otherwise we fall back to Math.random for endless play.
+// ---------------------------------------------------------------------------
+let randomSeed: number | null = null
+let rngState = 0
+
+function setRandomSeed(seed: number | null): void {
+  randomSeed = seed
+  rngState = seed === null ? 0 : seed >>> 0
+}
+
+function nextRandom(): number {
+  if (randomSeed === null) return Math.random()
+  // mulberry32 - tiny, fast, deterministic
+  rngState = (rngState + 0x6d2b79f5) | 0
+  let t = rngState
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+}
+
+/** Seed derived from the calendar day, so everyone gets the same daily maze. */
+function dailySeed(): number {
+  const d = new Date()
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+}
+
+// ---------------------------------------------------------------------------
+// Undo (Z) and restart-level (R). We snapshot the puzzle state (player, blocks
+// and enemies) each turn so a move can be rewound, and keep the level's initial
+// snapshot so the whole level can be reset to its starting layout.
+// ---------------------------------------------------------------------------
+type LevelSnapshot = {
+  player: { x: number; y: number }
+  blocks: Array<{ x: number; y: number }>
+  enemies: Array<{ x: number; y: number }>
+  moveCount: number
+}
+let undoStack: LevelSnapshot[] = []
+let initialSnapshot: LevelSnapshot | null = null
+
+function captureSnapshot(): LevelSnapshot | null {
+  if (!player) return null
+  return {
+    player: { x: player.gridX, y: player.gridY },
+    blocks: blocks.map(b => ({ x: b.gridX, y: b.gridY })),
+    enemies: enemies.map(e => ({ x: e.gridX, y: e.gridY })),
+    moveCount,
+  }
+}
+
+function applySnapshot(snap: LevelSnapshot): void {
+  if (!player) return
+  player.setPosition(snap.player.x, snap.player.y)
+  snap.blocks.forEach((b, i) => blocks[i] && blocks[i].setPosition(b.x, b.y))
+  snap.enemies.forEach((e, i) => enemies[i] && enemies[i].setPosition(e.x, e.y))
+  moveCount = snap.moveCount
+  // Recompute plate / gate state for the restored positions.
+  updatePressurePlate()
+  if (exitGate) exitGate.update()
+}
+
+function pushUndoSnapshot(): void {
+  const snap = captureSnapshot()
+  if (!snap) return
+  undoStack.push(snap)
+  if (undoStack.length > 300) undoStack.shift()
+}
+
+function performUndo(): void {
+  const snap = undoStack.pop()
+  if (!snap) return
+  applySnapshot(snap)
+  playSfx('move', 0.5)
+}
+
+function resetTransientEffects(): void {
+  ghostWallPasses = 0
+  enemiesFrozen = false
+  freezeStepsRemaining = 0
+  exitViewActive = false
+  exitViewStepsRemaining = 0
+  enemyViewActive = false
+  enemyViewStepsRemaining = 0
+  if (player) player.isGhostMode = false
+}
+
+function restartLevel(): void {
+  if (!initialSnapshot) return
+  applySnapshot(initialSnapshot)
+  moveCount = 0
+  undoStack = []
+  resetTransientEffects()
+  playSfx('push', 0.7)
+}
 let walls: Wall[] = []
 let decorativeObjects: DecorativeObject[] = []
 let powerUps: PowerUp[] = []
@@ -1272,6 +1510,8 @@ function isMobileDevice(): boolean {
 // Callbacks to update React state from LittleJS callbacks
 let setGameOverCallback: ((value: boolean) => void) | null = null
 let setGameWonCallback: ((value: boolean) => void) | null = null
+type WinStats = { level: number; moves: number; stars: number }
+let setWinStatsCallback: ((stats: WinStats) => void) | null = null
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let setShowMenuCallback: ((value: boolean) => void) | null = null // Used in useEffect cleanup
 let playerJustMoved: boolean = false // Track when player moves to trigger enemy movement
@@ -1292,14 +1532,15 @@ function generateRandomWorld(): void {
   walls = []
   decorativeObjects = [] // Not used anymore, but keeping for compatibility
 
-  // Use Math.random() for truly random generation each time
+  // Use the (optionally seeded) RNG so daily-challenge runs are reproducible.
   function random(): number {
-    return Math.random()
+    return nextRandom()
   }
 
   // Generate walls in a grid pattern with randomness
   const worldSize = 50 // Generate world from -worldSize to +worldSize
-  const wallDensity = 0.15 // 15% of cells will be walls
+  // Wall density creeps up with the level for a difficulty curve (capped).
+  const wallDensity = Math.min(0.24, 0.15 + (currentLevel - 1) * 0.01)
 
   for (let x = -worldSize; x <= worldSize; x++) {
     for (let y = -worldSize; y <= worldSize; y++) {
@@ -1308,6 +1549,14 @@ function generateRandomWorld(): void {
       const distanceFromSpawn = Math.sqrt(x * x + y * y)
       if (distanceFromSpawn < 6) {
         continue // No walls or objects near spawn (6 cell radius for safety)
+      }
+
+      // Skip the border ring - dedicated border walls are added below.
+      // Placing a random wall here too would create a duplicate wall on a
+      // border cell, and the exit/plate cleanup (which removes a single wall)
+      // would leave one behind, permanently blocking the exit.
+      if (x === -worldSize || x === worldSize || y === -worldSize || y === worldSize) {
+        continue
       }
 
       // Randomly place walls
@@ -1332,88 +1581,79 @@ function generateRandomWorld(): void {
     walls.push(new Wall(worldSize, y))  // Right edge
   }
 
-  // Place exit gate and pressure plate near each other at one of the edges
-  // Pressure plate is 3 cells away from exit and not in the direct path
+  // --- Guaranteed-solvable "puzzle pocket" at one edge -------------------
+  // Rather than scatter a single block across the whole maze (which is usually
+  // impossible to actually push to the plate), we carve a small clear room just
+  // inside the exit and lay out N plate+block pairs with a clear one-cell push
+  // lane each. This guarantees every level can be completed and scales the
+  // number of pairs with the current level.
+  const clearWallsAt = (gridX: number, gridY: number): void => {
+    walls = walls.filter(w => {
+      if (w.gridX === gridX && w.gridY === gridY) {
+        w.destroy()
+        return false
+      }
+      return true
+    })
+  }
+
+  // Number of plate/block pairs grows every couple of levels (capped at 5).
+  const plateCount = Math.min(5, 1 + Math.floor((currentLevel - 1) / 2))
+
   const edge = Math.floor(random() * 4) // 0=top, 1=bottom, 2=left, 3=right
-  let exitX = 0
-  let exitY = 0
-  let plateX = 0
-  let plateY = 0
+  // inward = from the exit toward the map interior; lateral = perpendicular.
+  let inX = 0, inY = 0, latX = 0, latY = 0
+  let exitX = 0, exitY = 0
+  // The exit's free coordinate must leave room for the lateral spread of the
+  // pocket (-1 .. plateCount+1) without hitting the corner.
+  const freeMin = -worldSize + 2
+  const freeMax = worldSize - 2 - (plateCount + 1)
+  const freeCoord = Math.floor(random() * (freeMax - freeMin + 1)) + freeMin
 
   switch (edge) {
-    case 0: // Top edge
-      exitX = Math.floor(random() * (worldSize * 2 + 1)) - worldSize
-      exitY = worldSize
-      // Place pressure plate 3 cells down and offset horizontally (not in direct path)
-      plateX = exitX + (random() < 0.5 ? 1 : -1) // Offset left or right
-      plateY = exitY - 3 // 3 cells down from exit
-      break
-    case 1: // Bottom edge
-      exitX = Math.floor(random() * (worldSize * 2 + 1)) - worldSize
-      exitY = -worldSize
-      // Place pressure plate 3 cells up and offset horizontally (not in direct path)
-      plateX = exitX + (random() < 0.5 ? 1 : -1) // Offset left or right
-      plateY = exitY + 3 // 3 cells up from exit
-      break
-    case 2: // Left edge
-      exitX = -worldSize
-      exitY = Math.floor(random() * (worldSize * 2 + 1)) - worldSize
-      // Place pressure plate 3 cells right and offset vertically (not in direct path)
-      plateX = exitX + 3 // 3 cells right from exit
-      plateY = exitY + (random() < 0.5 ? 1 : -1) // Offset up or down
-      break
-    case 3: // Right edge
-      exitX = worldSize
-      exitY = Math.floor(random() * (worldSize * 2 + 1)) - worldSize
-      // Place pressure plate 3 cells left and offset vertically (not in direct path)
-      plateX = exitX - 3 // 3 cells left from exit
-      plateY = exitY + (random() < 0.5 ? 1 : -1) // Offset up or down
-      break
+    case 0: exitX = freeCoord; exitY = worldSize; inX = 0; inY = -1; latX = 1; latY = 0; break // top
+    case 1: exitX = freeCoord; exitY = -worldSize; inX = 0; inY = 1; latX = 1; latY = 0; break // bottom
+    case 2: exitX = -worldSize; exitY = freeCoord; inX = 1; inY = 0; latX = 0; latY = 1; break // left
+    default: exitX = worldSize; exitY = freeCoord; inX = -1; inY = 0; latX = 0; latY = 1; break // right
   }
 
-  // Ensure plate coordinates are within bounds
-  plateX = Math.max(-worldSize + 1, Math.min(worldSize - 1, plateX))
-  plateY = Math.max(-worldSize + 1, Math.min(worldSize - 1, plateY))
+  // Map a (depth inward, lateral offset) coordinate to a world grid cell.
+  const cell = (depth: number, lat: number): [number, number] => [
+    exitX + inX * depth + latX * lat,
+    exitY + inY * depth + latY * lat,
+  ]
 
-  // Make sure exit and pressure plate are not blocked by walls (remove walls if present)
-  const wallAtExit = walls.find(w => w.gridX === exitX && w.gridY === exitY)
-  if (wallAtExit) {
-    wallAtExit.destroy()
-    walls = walls.filter(w => w !== wallAtExit)
+  // Carve the room: depths 1..5 across the full lateral span. The central
+  // column (lateral 0) is the player's clear path to the exit; plates sit at
+  // depth 2 and blocks at depth 3 on lateral lanes 1..plateCount.
+  for (let depth = 1; depth <= 5; depth++) {
+    for (let lat = -1; lat <= plateCount + 1; lat++) {
+      const [cx, cy] = cell(depth, lat)
+      clearWallsAt(cx, cy)
+    }
   }
-
-  const wallAtPlate = walls.find(w => w.gridX === plateX && w.gridY === plateY)
-  if (wallAtPlate) {
-    wallAtPlate.destroy()
-    walls = walls.filter(w => w !== wallAtPlate)
-  }
+  clearWallsAt(exitX, exitY) // the exit gap in the border wall
 
   exitGate = new ExitGate(exitX, exitY)
-  pressurePlate = new PressurePlate(plateX, plateY)
 
-  // Spawn a block randomly on the map (away from spawn, exit, and pressure plate)
-  let blockX = 0
-  let blockY = 0
-  let attempts = 0
+  pressurePlates = []
+  for (let i = 0; i < plateCount; i++) {
+    const lat = i + 1
+    const [px, py] = cell(2, lat) // plate
+    const [bx, by] = cell(3, lat) // block starts one cell deeper than its plate
+    pressurePlates.push(new PressurePlate(px, py))
+    blocks.push(new Block(bx, by))
+    // Player stands at depth 4 and pushes inward: block depth 3 -> plate depth 2.
+  }
 
-  do {
-    blockX = Math.floor(random() * (worldSize * 2 - 2)) - (worldSize - 1)
-    blockY = Math.floor(random() * (worldSize * 2 - 2)) - (worldSize - 1)
-    attempts++
-  } while (
-    (Math.sqrt(blockX * blockX + blockY * blockY) < 8 || // Too close to spawn
-      (blockX === exitX && blockY === exitY) || // At exit
-      (blockX === plateX && blockY === plateY) || // At pressure plate
-      walls.some(w => w.gridX === blockX && w.gridY === blockY)) && // On a wall
-    attempts < 100
-  )
+  // "Par" for the star rating: the rough ideal is walking from spawn (0,0) to
+  // the exit plus a few moves to solve each plate. Beating par earns 3 stars.
+  levelParMoves = Math.abs(exitX) + Math.abs(exitY) + plateCount * 6
 
-  const block = new Block(blockX, blockY)
-  blocks.push(block)
-
-  // Spawn 10 power-ups of each type
+  // Power-ups are deliberately scarce so finding one feels meaningful (the old
+  // build scattered 40 of them, which read as clutter rather than reward).
   const powerUpTypes: Array<'ghost' | 'freeze' | 'exitView' | 'enemyView'> = ['ghost', 'freeze', 'exitView', 'enemyView']
-  const powerUpsPerType = 10
+  const powerUpsPerType = 4
 
   powerUpTypes.forEach(type => {
     for (let i = 0; i < powerUpsPerType; i++) {
@@ -1429,8 +1669,8 @@ function generateRandomWorld(): void {
       } while (
         (Math.sqrt(powerUpX * powerUpX + powerUpY * powerUpY) < 8 || // Too close to spawn
           (powerUpX === exitX && powerUpY === exitY) || // At exit
-          (powerUpX === plateX && powerUpY === plateY) || // At pressure plate
-          (powerUpX === blockX && powerUpY === blockY) || // At block
+          pressurePlates.some(p => p.gridX === powerUpX && p.gridY === powerUpY) || // On a plate
+          blocks.some(b => b.gridX === powerUpX && b.gridY === powerUpY) || // On a block
           walls.some(w => w.gridX === powerUpX && w.gridY === powerUpY) || // On a wall - CRITICAL CHECK
           powerUps.some(p => p.gridX === powerUpX && p.gridY === powerUpY)) && // On another power-up
         attempts < maxAttempts
@@ -1448,7 +1688,7 @@ function generateRandomWorld(): void {
   })
 
   console.log(`Generated world with ${walls.length} walls (including boundary)`)
-  console.log(`Exit gate placed at (${exitX}, ${exitY}), pressure plate at (${plateX}, ${plateY}), block at (${blockX}, ${blockY})`)
+  console.log(`Level ${currentLevel}: exit at (${exitX}, ${exitY}), ${pressurePlates.length} plate(s), ${blocks.length} block(s)`)
   console.log(`Spawned ${powerUps.length} power-ups`)
 }
 
@@ -1522,6 +1762,17 @@ function updateCamera(immediate: boolean = false): void {
     // Move camera towards target smoothly
     cameraPos.x += dx * cameraSpeed * timeDelta
     cameraPos.y += dy * cameraSpeed * timeDelta
+
+    // Apply decaying screen shake as a small zero-mean camera offset. The
+    // smooth follow above naturally re-centers on the player, so the jitter
+    // does not accumulate.
+    if (cameraShake > 0.001) {
+      cameraPos.x += (Math.random() * 2 - 1) * cameraShake
+      cameraPos.y += (Math.random() * 2 - 1) * cameraShake
+      cameraShake *= 0.85
+    } else {
+      cameraShake = 0
+    }
   }
 }
 
@@ -1530,9 +1781,9 @@ function updateCamera(immediate: boolean = false): void {
  * Update pressure plate and door states
  */
 function updatePressurePlate(): void {
-  if (!pressurePlate) return
-
-  pressurePlate.checkActivation()
+  for (const plate of pressurePlates) {
+    plate.checkActivation()
+  }
 }
 
 /**
@@ -1551,8 +1802,8 @@ function isValidPowerUpPosition(gridX: number, gridY: number): boolean {
     return false
   }
 
-  // At pressure plate
-  if (pressurePlate && gridX === pressurePlate.gridX && gridY === pressurePlate.gridY) {
+  // At any pressure plate
+  if (pressurePlates.some(p => p.gridX === gridX && p.gridY === gridY)) {
     return false
   }
 
@@ -1634,7 +1885,7 @@ function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView
 
     // Check if we need to respawn a power-up (keep at least 5 of each type)
     const ghostPowerUpCount = powerUps.filter(p => p.powerType === 'ghost' && !p.isCollected).length
-    if (ghostPowerUpCount <= 5) {
+    if (ghostPowerUpCount <= 1) {
       spawnPowerUp('ghost')
     }
   } else if (powerType === 'freeze') {
@@ -1644,7 +1895,7 @@ function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView
 
     // Check if we need to respawn a power-up (keep at least 5 of each type)
     const freezePowerUpCount = powerUps.filter(p => p.powerType === 'freeze' && !p.isCollected).length
-    if (freezePowerUpCount <= 5) {
+    if (freezePowerUpCount <= 1) {
       spawnPowerUp('freeze')
     }
   } else if (powerType === 'exitView') {
@@ -1654,7 +1905,7 @@ function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView
 
     // Check if we need to respawn a power-up (keep at least 5 of each type)
     const exitViewPowerUpCount = powerUps.filter(p => p.powerType === 'exitView' && !p.isCollected).length
-    if (exitViewPowerUpCount <= 5) {
+    if (exitViewPowerUpCount <= 1) {
       spawnPowerUp('exitView')
     }
   } else if (powerType === 'enemyView') {
@@ -1664,7 +1915,7 @@ function activatePowerUp(powerType: 'ghost' | 'freeze' | 'exitView' | 'enemyView
 
     // Check if we need to respawn a power-up (keep at least 5 of each type)
     const enemyViewPowerUpCount = powerUps.filter(p => p.powerType === 'enemyView' && !p.isCollected).length
-    if (enemyViewPowerUpCount <= 5) {
+    if (enemyViewPowerUpCount <= 1) {
       spawnPowerUp('enemyView')
     }
   }
@@ -1755,6 +2006,8 @@ function moveEnemies(): void {
       // Verify it was actually marked as collected
       if (powerUp.isCollected) {
         powerUpActivatedThisFrame = true // Set flag before activation
+        playSfx('powerup')
+        burst(powerUp.pos, powerUp.color, 1)
         activatePowerUp(powerUp.powerType)
       }
       // Break immediately after first collection to prevent duplicates
@@ -1777,6 +2030,9 @@ function triggerGameOver(): void {
   if (gameOver || gameWon) return
 
   gameOver = true
+  playSfx('death')
+  triggerShake(0.5)
+  if (player) burst(player.pos, RED, 1.5)
   // Ensure callback is called synchronously to show game over screen
   if (setGameOverCallback) {
     setGameOverCallback(true)
@@ -1791,6 +2047,12 @@ function triggerGameWin(): void {
   if (gameOver || gameWon) return
 
   gameWon = true
+  playSfx('win')
+  triggerShake(0.25)
+  if (player) burst(player.pos, GREEN, 2)
+  if (setWinStatsCallback) {
+    setWinStatsCallback({ level: currentLevel, moves: moveCount, stars: computeStars() })
+  }
   if (setGameWonCallback) setGameWonCallback(true)
   console.log('You Win!')
 }
@@ -1808,7 +2070,7 @@ function restartGame(currentSkin: string = ':)'): void {
   decorativeObjects.forEach(obj => obj.destroy())
   powerUps.forEach(powerUp => powerUp.destroy())
   if (exitGate) exitGate.destroy()
-  if (pressurePlate) pressurePlate.destroy()
+  pressurePlates.forEach(plate => plate.destroy())
 
   // Clear all engine objects
   engineObjects.length = 0
@@ -1821,7 +2083,7 @@ function restartGame(currentSkin: string = ':)'): void {
   decorativeObjects = []
   powerUps = []
   exitGate = null
-  pressurePlate = null
+  pressurePlates = []
   gameOver = false
   gameWon = false
   if (setGameOverCallback) setGameOverCallback(false)
@@ -1834,6 +2096,10 @@ function restartGame(currentSkin: string = ':)'): void {
   exitViewStepsRemaining = 0
   enemyViewActive = false
   enemyViewStepsRemaining = 0
+  moveCount = 0
+  cameraShake = 0
+  initialSnapshot = null
+  undoStack = []
 
   // Generate new world (with new random seed)
   // This will create new objects and add them to engineObjects
@@ -1878,8 +2144,7 @@ function restartGame(currentSkin: string = ':)'): void {
       const isOnWall = walls.some(w => w.gridX === exitEnemyX && w.gridY === exitEnemyY)
       const isOnEnemy = enemies.some(e => e.gridX === exitEnemyX && e.gridY === exitEnemyY)
       const isOutOfBounds = Math.abs(exitEnemyX) > worldSize || Math.abs(exitEnemyY) > worldSize
-      const pressurePlateForCheck: PressurePlate | null = pressurePlate
-      const isOnPressurePlate = pressurePlateForCheck !== null ? (exitEnemyX === (pressurePlateForCheck as PressurePlate).gridX && exitEnemyY === (pressurePlateForCheck as PressurePlate).gridY) : false
+      const isOnPressurePlate = pressurePlates.some(p => p.gridX === exitEnemyX && p.gridY === exitEnemyY)
 
       if (!isOnExit && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnPressurePlate) {
         foundPosition = true
@@ -1917,9 +2182,8 @@ function restartGame(currentSkin: string = ':)'): void {
       const isOnEnemy = enemies.some(e => e.gridX === blockEnemyX && e.gridY === blockEnemyY)
       const isOutOfBounds = Math.abs(blockEnemyX) > worldSize || Math.abs(blockEnemyY) > worldSize
       const currentExitGateForBlock: ExitGate | null = exitGate
-      const currentPressurePlateForBlock: PressurePlate | null = pressurePlate
       const isOnExit = currentExitGateForBlock !== null ? (blockEnemyX === (currentExitGateForBlock as ExitGate).gridX && blockEnemyY === (currentExitGateForBlock as ExitGate).gridY) : false
-      const isOnPressurePlate = currentPressurePlateForBlock !== null ? (blockEnemyX === (currentPressurePlateForBlock as PressurePlate).gridX && blockEnemyY === (currentPressurePlateForBlock as PressurePlate).gridY) : false
+      const isOnPressurePlate = pressurePlates.some(p => p.gridX === blockEnemyX && p.gridY === blockEnemyY)
 
       if (!isOnBlock && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnExit && !isOnPressurePlate) {
         foundPosition = true
@@ -1937,8 +2201,8 @@ function restartGame(currentSkin: string = ':)'): void {
     console.log('No blocks found when trying to spawn purple enemy')
   }
 
-  // Spawn orange enemies (followers) at random positions
-  const numOrangeEnemies = 2 + Math.floor(Math.random() * 3) // 2-4 orange enemies
+  // Spawn orange enemies (followers). Count grows with the level (capped).
+  const numOrangeEnemies = Math.min(8, 2 + Math.floor(Math.random() * 3) + Math.floor((currentLevel - 1) / 2))
 
   for (let i = 0; i < numOrangeEnemies; i++) {
     let enemyX = 0
@@ -1979,6 +2243,38 @@ const arrowVec1 = new Vector2(0, 0)
 const arrowVec2 = new Vector2(0, 0)
 const arrowVec3 = new Vector2(0, 0)
 const arrowVec4 = new Vector2(0, 0)
+
+// Reusable HUD colors
+const hudLight = new Color(0.15, 0.15, 0.15, 1)
+const hudDark = new Color(0.95, 0.95, 0.95, 1)
+const hudOutlineLight = new Color(1, 1, 1, 0.8)
+const hudOutlineDark = new Color(0, 0, 0, 0.6)
+
+/**
+ * Draw the on-screen HUD: current level, plates remaining, move count and a
+ * short controls hint. Screen-space, so it ignores the camera.
+ */
+function drawHUD(): void {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const fill = isDark ? hudDark : hudLight
+  const outline = isDark ? hudOutlineDark : hudOutlineLight
+
+  const platesLeft = pressurePlates.filter(p => !p.isActivated).length
+  const line1 = `LEVEL ${currentLevel}`
+  const line2 = platesLeft > 0 ? `PLATES LEFT: ${platesLeft}` : 'EXIT OPEN!'
+  const line3 = `MOVES: ${moveCount}`
+
+  drawTextScreen(line1, new Vector2(70, 26), 22, fill, 4, outline, 'left')
+  drawTextScreen(line2, new Vector2(70, 52), 18, fill, 3, outline, 'left')
+  drawTextScreen(line3, new Vector2(70, 76), 18, fill, 3, outline, 'left')
+
+  // Controls hint along the bottom.
+  drawTextScreen(
+    'Z: undo   R: restart level',
+    new Vector2(mainCanvasSize.x / 2, mainCanvasSize.y - 24),
+    16, fill, 3, outline, 'center'
+  )
+}
 
 /**
  * Draw arrows pointing to exit and block when exit view is active
@@ -2212,6 +2508,7 @@ function Game() {
   const [showMenu, setShowMenu] = useState(true)
   const [gameOverState, setGameOverState] = useState(false)
   const [gameWonState, setGameWonState] = useState(false)
+  const [winStats, setWinStats] = useState<WinStats>({ level: 1, moves: 0, stars: 3 })
   const [skin, setSkin] = useState<string>(':)')
   const { theme } = useTheme()
 
@@ -2219,11 +2516,13 @@ function Game() {
   useEffect(() => {
     setGameOverCallback = setGameOverState
     setGameWonCallback = setGameWonState
+    setWinStatsCallback = setWinStats
     setShowMenuCallback = setShowMenu
 
     return () => {
       setGameOverCallback = null
       setGameWonCallback = null
+      setWinStatsCallback = null
       setShowMenuCallback = null
     }
   }, [])
@@ -2382,6 +2681,9 @@ function Game() {
           () => {
             console.log('Tutorial Level initialized!')
 
+            // Build the procedural sound effects (no audio files needed)
+            initEffects()
+
             // Set canvas background based on current theme
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
             const bgColor = currentTheme === 'dark' ? new Color(0.1, 0.1, 0.1, 1) : WHITE
@@ -2403,7 +2705,7 @@ function Game() {
             enemies.forEach(enemy => enemy.destroy())
             powerUps.forEach(powerUp => powerUp.destroy())
             if (exitGate) exitGate.destroy()
-            if (pressurePlate) pressurePlate.destroy()
+            pressurePlates.forEach(plate => plate.destroy())
 
             // Reset game state arrays
             blocks = []
@@ -2412,7 +2714,7 @@ function Game() {
             walls = []
             powerUps = []
             exitGate = null
-            pressurePlate = null
+            pressurePlates = []
             gameOver = false
             gameWon = false
             playerJustMoved = false
@@ -2422,6 +2724,10 @@ function Game() {
             exitViewStepsRemaining = 0
             enemyViewActive = false
             enemyViewStepsRemaining = 0
+            moveCount = 0
+            cameraShake = 0
+            initialSnapshot = null
+            undoStack = []
             if (setGameOverCallback) setGameOverCallback(false)
             if (setGameWonCallback) setGameWonCallback(false)
 
@@ -2466,8 +2772,7 @@ function Game() {
                 const isOnWall = walls.some(w => w.gridX === exitEnemyX && w.gridY === exitEnemyY)
                 const isOnEnemy = enemies.some(e => e.gridX === exitEnemyX && e.gridY === exitEnemyY)
                 const isOutOfBounds = Math.abs(exitEnemyX) > WORLD_SIZE || Math.abs(exitEnemyY) > WORLD_SIZE
-                const currentPressurePlate = pressurePlate
-                const isOnPressurePlate = currentPressurePlate !== null && exitEnemyX === (currentPressurePlate as PressurePlate).gridX && exitEnemyY === (currentPressurePlate as PressurePlate).gridY
+                const isOnPressurePlate = pressurePlates.some(p => p.gridX === exitEnemyX && p.gridY === exitEnemyY)
 
                 if (!isOnExit && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnPressurePlate) {
                   foundPosition = true
@@ -2507,9 +2812,8 @@ function Game() {
                 const isOnEnemy = enemies.some(e => e.gridX === blockEnemyX && e.gridY === blockEnemyY)
                 const isOutOfBounds = Math.abs(blockEnemyX) > WORLD_SIZE || Math.abs(blockEnemyY) > WORLD_SIZE
                 const currentExitGate = exitGate
-                const currentPressurePlate = pressurePlate
                 const isOnExit = currentExitGate !== null && blockEnemyX === (currentExitGate as ExitGate).gridX && blockEnemyY === (currentExitGate as ExitGate).gridY
-                const isOnPressurePlate = currentPressurePlate !== null && blockEnemyX === (currentPressurePlate as PressurePlate).gridX && blockEnemyY === (currentPressurePlate as PressurePlate).gridY
+                const isOnPressurePlate = pressurePlates.some(p => p.gridX === blockEnemyX && p.gridY === blockEnemyY)
 
                 if (!isOnBlock && !isOnWall && !isOnEnemy && !isOutOfBounds && !isOnExit && !isOnPressurePlate) {
                   foundPosition = true
@@ -2564,6 +2868,21 @@ function Game() {
 
             // Don't update game logic if game is over or won
             if (gameOver || gameWon) return
+
+            // Capture the level's starting layout the first frame it exists, so
+            // restart-level (R) can return to it. Cleared to null on regen.
+            if (!initialSnapshot && player) {
+              initialSnapshot = captureSnapshot()
+            }
+
+            // Undo (Z) and restart-level (R)
+            if (player && !player.isMoving) {
+              if (keyWasPressed('z') || keyWasPressed('Z')) {
+                performUndo()
+              } else if (keyWasPressed('r') || keyWasPressed('R')) {
+                restartLevel()
+              }
+            }
 
             // Update cached viewport bounds once per frame
             updateViewportBounds()
@@ -2627,7 +2946,11 @@ function Game() {
 
           // gameRenderPost - Called after objects are rendered
           () => {
-            // Post-render logic (e.g., UI overlays, debug info)
+            // Draw the HUD overlay while a level is in progress. (When the menu
+            // or an end screen is up, the React overlay covers the canvas.)
+            if (!gameOver && !gameWon && player) {
+              drawHUD()
+            }
           },
 
           // imageSources - Images to preload (optional)
@@ -2653,21 +2976,36 @@ function Game() {
     }
   }, [showMenu, skin])
 
-  // Handle menu start
+  // Handle menu start (endless mode - fresh random mazes)
   const handleStartGame = () => {
     // Always reset game states first
     setGameOverState(false)
     setGameWonState(false)
+    // Endless play uses unseeded (truly random) generation
+    setRandomSeed(null)
+    // Fresh run always starts at level 1
+    currentLevel = 1
     // Reset game state to prevent stuck positions
     restartGame(skin)
     // Hide menu to start game
     setShowMenu(false)
   }
 
-  // Handle restart from game over/victory
+  // Handle daily challenge - everyone gets the same maze for the calendar day
+  const handleDailyChallenge = () => {
+    setGameOverState(false)
+    setGameWonState(false)
+    setRandomSeed(dailySeed())
+    currentLevel = 1
+    restartGame(skin)
+    setShowMenu(false)
+  }
+
+  // Handle restart from game over (a death ends the run, so start over at 1)
   const handleRestart = () => {
     setGameOverState(false)
     setGameWonState(false)
+    currentLevel = 1
     restartGame(skin)
   }
 
@@ -2680,9 +3018,10 @@ function Game() {
     // This prevents interfering with the game over screen display
   }
 
-  // Handle next level (victory)
+  // Handle next level (victory) - advance the level counter, then regenerate
   const handleNextLevel = () => {
     setGameWonState(false)
+    currentLevel += 1
     restartGame(skin)
   }
 
@@ -2700,9 +3039,9 @@ function Game() {
           pointerEvents: showMenu || gameOverState || gameWonState ? 'none' : 'auto'
         }}
       />
-      {showMenu && <MenuScreen onStart={handleStartGame} currentSkin={skin} onSkinSelect={setSkin} />}
+      {showMenu && <MenuScreen onStart={handleStartGame} onDaily={handleDailyChallenge} currentSkin={skin} onSkinSelect={setSkin} />}
       {gameOverState && <GameOverScreen onRestart={handleRestart} onMenu={handleMenu} />}
-      {gameWonState && <VictoryScreen onNext={handleNextLevel} onMenu={handleMenu} />}
+      {gameWonState && <VictoryScreen onNext={handleNextLevel} onMenu={handleMenu} level={winStats.level} moves={winStats.moves} stars={winStats.stars} />}
     </div>
   )
 }

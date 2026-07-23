@@ -6,6 +6,7 @@ import { PrivacyPolicy } from './PrivacyPolicy'
 
 interface MenuScreenProps {
   onStart: () => void
+  onDaily?: () => void
   currentSkin?: string
   onSkinSelect?: (skin: string) => void
 }
@@ -14,7 +15,7 @@ interface MenuScreenProps {
  * Main Menu Screen Component
  * Shows when the game first loads or when paused
  */
-export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuScreenProps) {
+export function MenuScreen({ onStart, onDaily, currentSkin = ':)', onSkinSelect }: MenuScreenProps) {
   const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   const [showSkins, setShowSkins] = useState(false)
@@ -182,6 +183,11 @@ export function MenuScreen({ onStart, currentSkin = ':)', onSkinSelect }: MenuSc
           <button className="menu-button play" onClick={onStart}>
             Play
           </button>
+          {onDaily && (
+            <button className="menu-button" onClick={onDaily}>
+              Daily Challenge
+            </button>
+          )}
           <button className="menu-button" onClick={() => setShowSkins(true)}>
             Skins: {currentSkin}
           </button>

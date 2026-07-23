@@ -204,3 +204,18 @@
   }
 }
 
+
+.victory-stars {
+  font-size: 2.6rem;
+  letter-spacing: 0.3rem;
+  color: #f4c430;
+  margin-top: 0.75rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.victory-stats {
+  margin-top: 0.5rem;
+  font-size: 1.05rem;
+  opacity: 0.85;
+  letter-spacing: 0.03rem;
+}
