@@ -16,7 +16,12 @@ SMALL is a grid-based puzzle game where you control a square character navigatin
 
 - **Procedurally Generated Levels**: Each playthrough features a unique randomly generated maze
 - **Grid-Based Movement**: Smooth, tile-based movement system
-- **Puzzle Mechanics**: Push blocks onto pressure plates to open exit gates
+- **Puzzle Mechanics**: Push blocks onto pressure plates to open exit gates — the gate opens only once *every* plate is activated
+- **Difficulty Progression**: Each level adds more walls, enemies, and plate/block pairs
+- **Undo & Restart**: Press **Z** to undo a move or **R** to restart the level
+- **Move Scoring**: Earn a 1–3 star rating for clearing a level in fewer moves
+- **Daily Challenge**: A seeded maze that's identical for every player each day
+- **Juicy Feedback**: Procedural sound effects, particle bursts, and screen shake (no asset downloads)
 - **Enemy AI**: Two types of enemies with different behaviors:
   - **Orange Enemies**: Follow you around the entire map
   - **Purple Enemies**: Patrol specific areas and chase when you get too close
@@ -35,16 +40,23 @@ SMALL is a grid-based puzzle game where you control a square character navigatin
 ## 🎯 How to Play
 
 ### Controls
-- **Arrow Keys** or **WASD** to move
-- Move one grid cell at a time
+- **Arrow Keys** or **WASD** to move (one grid cell at a time)
 - Push blue blocks onto yellow pressure plates
-- Reach the green exit gate to win (after activating the pressure plate)
+- **Z** to undo your last move, **R** to restart the level
+- Reach the green exit gate to win (after every pressure plate is activated)
 
 ### Objectives
-1. Push the blue block onto the yellow pressure plate
-2. The pressure plate activates and opens the exit gate (turns green)
+1. Push each blue block onto a yellow pressure plate
+2. When **all** plates are activated the exit gate opens (turns green)
 3. Navigate to the exit gate to complete the level
 4. Avoid enemies - they will end your game on contact!
+5. Clear the level in fewer moves to earn more stars (★★★)
+
+### Modes & Progression
+- **Play** — endless mode with fresh procedurally generated mazes
+- **Daily Challenge** — a seeded maze that's the same for everyone that day
+- Each level you clear increases the difficulty: more walls, more enemies, and
+  more plate/block pairs to solve
 
 ### Tips
 - Use power-ups strategically

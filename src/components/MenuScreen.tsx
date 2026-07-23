@@ -117,9 +117,11 @@ export function MenuScreen({ onStart, onDaily, currentSkin = ':)', onSkinSelect 
             <h2>Controls</h2>
             <ul>
               <li>Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move</li>
-              <li>Push the <strong>blue block</strong> onto the <strong>pressure plate</strong></li>
-              <li>Activate the pressure plate to open the <strong>exit gate</strong></li>
+              <li>Push each <strong>blue block</strong> onto a <strong>pressure plate</strong></li>
+              <li>The <strong>exit gate</strong> opens once <strong>all plates</strong> are activated</li>
               <li>Escape the enemies and reach the exit to win!</li>
+              <li>Press <strong>Z</strong> to undo a move, <strong>R</strong> to restart the level</li>
+              <li>Clear it in fewer moves to earn more <strong>stars</strong> ★</li>
             </ul>
 
             <div className="power-ups-info">
