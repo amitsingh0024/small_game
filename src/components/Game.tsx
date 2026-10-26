@@ -27,6 +27,7 @@ import {
   ParticleEmitter,
 } from 'littlejsengine'
 import './Game.css'
+import { track } from '../analytics'
 import { MenuScreen } from './MenuScreen'
 import { GameOverScreen } from './GameOverScreen'
 import { VictoryScreen } from './VictoryScreen'
@@ -2030,6 +2031,7 @@ function triggerGameOver(): void {
   if (gameOver || gameWon) return
 
   gameOver = true
+  track('game_over', { level: currentLevel, moves: moveCount, mode: randomSeed === null ? 'endless' : 'daily' })
   playSfx('death')
   triggerShake(0.5)
   if (player) burst(player.pos, RED, 1.5)
@@ -2047,6 +2049,12 @@ function triggerGameWin(): void {
   if (gameOver || gameWon) return
 
   gameWon = true
+  track('level_complete', {
+    level: currentLevel,
+    moves: moveCount,
+    stars: computeStars(),
+    mode: randomSeed === null ? 'endless' : 'daily',
+  })
   playSfx('win')
   triggerShake(0.25)
   if (player) burst(player.pos, GREEN, 2)
@@ -2985,6 +2993,7 @@ function Game() {
     setRandomSeed(null)
     // Fresh run always starts at level 1
     currentLevel = 1
+    track('game_start', { mode: 'endless' })
     // Reset game state to prevent stuck positions
     restartGame(skin)
     // Hide menu to start game
@@ -2997,6 +3006,7 @@ function Game() {
     setGameWonState(false)
     setRandomSeed(dailySeed())
     currentLevel = 1
+    track('game_start', { mode: 'daily' })
     restartGame(skin)
     setShowMenu(false)
   }
@@ -3022,6 +3032,7 @@ function Game() {
   const handleNextLevel = () => {
     setGameWonState(false)
     currentLevel += 1
+    track('next_level', { level: currentLevel, mode: randomSeed === null ? 'endless' : 'daily' })
     restartGame(skin)
   }
 
